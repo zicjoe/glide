@@ -1,4 +1,6 @@
 const RECONCILIATION_STORAGE_KEY = "glide:reconciliation";
+const REFUND_STORAGE_KEY = "glide:refunds";
+const EVENT_STORAGE_KEY = "glide:events";
 
 export interface StoredReconciliationRecord {
   reconciliationId: string;
@@ -11,6 +13,32 @@ export interface StoredReconciliationRecord {
   feeAmount: string;
   variance: string;
   status: "MATCHED" | "MISMATCHED" | "REVIEW";
+  createdAt: string;
+}
+
+export interface StoredRefundRequest {
+  refundId: string;
+  paymentId: string;
+  invoiceId: string;
+  merchantId: string;
+  reason: string;
+  amount: string;
+  asset: "sBTC" | "USDCx";
+  destination: string;
+  status: "REQUESTED" | "APPROVED" | "SENT" | "FAILED";
+  createdAt: string;
+}
+
+export interface StoredNotificationEvent {
+  eventId: string;
+  merchantId: string;
+  type:
+    | "INVOICE_CREATED"
+    | "PAYMENT_CONFIRMED"
+    | "SETTLEMENT_RECORDED"
+    | "REFUND_REQUESTED";
+  payload: string;
+  deliveryStatus: "PENDING" | "DELIVERED" | "FAILED";
   createdAt: string;
 }
 
@@ -48,4 +76,20 @@ export function saveReconciliationRecords(
   records: StoredReconciliationRecord[],
 ) {
   saveJson(RECONCILIATION_STORAGE_KEY, records);
+}
+
+export function loadRefundRequests(): StoredRefundRequest[] {
+  return loadJson<StoredRefundRequest>(REFUND_STORAGE_KEY);
+}
+
+export function saveRefundRequests(refunds: StoredRefundRequest[]) {
+  saveJson(REFUND_STORAGE_KEY, refunds);
+}
+
+export function loadNotificationEvents(): StoredNotificationEvent[] {
+  return loadJson<StoredNotificationEvent>(EVENT_STORAGE_KEY);
+}
+
+export function saveNotificationEvents(events: StoredNotificationEvent[]) {
+  saveJson(EVENT_STORAGE_KEY, events);
 }

@@ -11,6 +11,7 @@ const navItems = [
   { href: "/yield", label: "Yield" },
   { href: "/refunds", label: "Refunds" },
   { href: "/reconciliation", label: "Reconciliation" },
+  { href: "/activity", label: "Activity" },
 ];
 
 export function AppSidebar() {

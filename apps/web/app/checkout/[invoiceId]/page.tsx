@@ -16,11 +16,15 @@ import { executeSettlement } from "@/lib/settlement-engine";
 import { loadTreasurySettings } from "@/lib/treasury-storage";
 import { getInvoiceStatus } from "@/lib/validators/invoice";
 import type { Invoice } from "@/types/invoice";
+
+import { createReconciliationRecord } from "@/lib/reconciliation";
 import {
+    loadNotificationEvents,
     loadReconciliationRecords,
+    saveNotificationEvents,
     saveReconciliationRecords,
   } from "@/lib/ops-storage";
-import { createReconciliationRecord } from "@/lib/reconciliation";
+  import { createEvent } from "@/lib/events";
 
 interface CheckoutPageProps {
   params: Promise<{
@@ -111,6 +115,21 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
       ];
 
       saveReconciliationRecords(nextReconciliationRecords);
+      const nextEvents = [
+        createEvent({
+          merchantId: invoice.merchantId,
+          type: "SETTLEMENT_RECORDED",
+          payload: `Settlement ${result.settlement.settlementId} completed for invoice ${invoice.reference}.`,
+        }),
+        createEvent({
+          merchantId: invoice.merchantId,
+          type: "PAYMENT_CONFIRMED",
+          payload: `Payment ${result.payment.paymentId} was confirmed for invoice ${invoice.reference}.`,
+        }),
+        ...loadNotificationEvents(),
+      ];
+
+      saveNotificationEvents(nextEvents);
 
       const nextInvoices = updateInvoiceStatus(invoice.invoiceId, "PAID");
       setInvoices(nextInvoices);

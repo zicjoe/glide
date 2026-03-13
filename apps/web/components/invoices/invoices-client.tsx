@@ -10,6 +10,11 @@ import { loadInvoices, saveInvoices, type StoredInvoice } from "@/lib/invoice-st
 import { validateInvoiceForm, getInvoiceStatus } from "@/lib/validators/invoice";
 import type { SettlementAsset } from "@/types/merchant";
 import type { Invoice } from "@/types/invoice";
+import {
+  loadNotificationEvents,
+  saveNotificationEvents,
+} from "@/lib/ops-storage";
+import { createEvent } from "@/lib/events";
 
 function createDefaultExpiry(): string {
   const date = new Date();
@@ -68,6 +73,17 @@ export function InvoicesClient() {
     const nextInvoices = [invoice, ...invoices];
     setInvoices(nextInvoices);
     saveInvoices(nextInvoices);
+
+    const nextEvents = [
+      createEvent({
+        merchantId: invoice.merchantId,
+        type: "INVOICE_CREATED",
+        payload: `Invoice ${invoice.reference} was created for ${invoice.amount} ${invoice.settlementAsset}.`,
+      }),
+      ...loadNotificationEvents(),
+    ];
+
+    saveNotificationEvents(nextEvents);
 
     setForm({
       reference: "",
