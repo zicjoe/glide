@@ -37,3 +37,17 @@ export function saveInvoices(invoices: StoredInvoice[]) {
 
   window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(invoices));
 }
+
+export function updateInvoiceStatus(
+  invoiceId: string,
+  status: StoredInvoice["status"],
+): StoredInvoice[] {
+  const invoices = loadInvoices();
+
+  const nextInvoices = invoices.map((invoice) =>
+    invoice.invoiceId === invoiceId ? { ...invoice, status } : invoice,
+  );
+
+  saveInvoices(nextInvoices);
+  return nextInvoices;
+}
