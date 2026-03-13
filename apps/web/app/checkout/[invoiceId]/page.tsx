@@ -16,6 +16,11 @@ import { executeSettlement } from "@/lib/settlement-engine";
 import { loadTreasurySettings } from "@/lib/treasury-storage";
 import { getInvoiceStatus } from "@/lib/validators/invoice";
 import type { Invoice } from "@/types/invoice";
+import {
+    loadReconciliationRecords,
+    saveReconciliationRecords,
+  } from "@/lib/ops-storage";
+import { createReconciliationRecord } from "@/lib/reconciliation";
 
 interface CheckoutPageProps {
   params: Promise<{
@@ -93,6 +98,19 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
       savePayments(nextPayments);
       saveSettlements(nextSettlements);
       saveAllocations(nextAllocations);
+
+      const reconciliationRecord = createReconciliationRecord({
+        invoice,
+        payment: result.payment,
+        settlement: result.settlement,
+      });
+
+      const nextReconciliationRecords = [
+        reconciliationRecord,
+        ...loadReconciliationRecords(),
+      ];
+
+      saveReconciliationRecords(nextReconciliationRecords);
 
       const nextInvoices = updateInvoiceStatus(invoice.invoiceId, "PAID");
       setInvoices(nextInvoices);
