@@ -1,46 +1,47 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export function HomeNavigation() {
   return (
-    <nav className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/90 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/95 backdrop-blur-xl shadow-sm">
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-6 lg:px-8">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/glide-logo.png"
-            alt="Glide"
-            width={150}
-            height={40}
-            className="h-9 w-auto"
-            priority
-          />
-        </Link>
+        <div className="flex items-center">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/glide-logo.png"
+              alt="Glide - Treasury Automation"
+              width={160}
+              height={40}
+              className="h-9 w-auto"
+              priority
+            />
+          </Link>
+        </div>
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-10 md:flex">
           <a
             href="#features"
-            className="text-sm font-medium text-zinc-700 transition-colors hover:text-zinc-950"
+            className="text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
           >
             Features
           </a>
           <a
             href="#product"
-            className="text-sm font-medium text-zinc-700 transition-colors hover:text-zinc-950"
+            className="text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
           >
             Product
           </a>
           <a
             href="#docs"
-            className="text-sm font-medium text-zinc-700 transition-colors hover:text-zinc-950"
+            className="text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
           >
             Documentation
           </a>
-          <Link
-            href="/dashboard"
-            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30"
-          >
-            Open App
-          </Link>
+
+          <Button className="bg-blue-600 text-white shadow-md shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30">
+            <Link href="/dashboard">Open App</Link>
+          </Button>
         </div>
       </div>
     </nav>
