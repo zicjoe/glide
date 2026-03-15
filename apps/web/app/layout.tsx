@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   title: "Glide",
@@ -13,7 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-zinc-50 text-zinc-950 antialiased">{children}</body>
+      <body className={`${inter.variable} bg-zinc-50 text-zinc-950 antialiased`}>
+        {children}
+      </body>
     </html>
   );
 }
