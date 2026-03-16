@@ -2,8 +2,22 @@ import { Settings } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import type { Merchant, TreasuryPolicy } from "@/lib/contracts/types";
+import { ASSET } from "@/lib/contracts/constants";
 
-export function SettlementDefaults() {
+type SettlementDefaultsProps = {
+  policy: TreasuryPolicy | null;
+  merchant: Merchant;
+};
+
+export function SettlementDefaults({
+  policy,
+}: SettlementDefaultsProps) {
+  const settlementAsset = policy?.settlementAsset ?? ASSET.SBTC;
+  const autoSplit = policy?.autoSplit ?? true;
+  const idleYield = policy?.idleYield ?? true;
+  const yieldThreshold = policy?.yieldThreshold ?? 0;
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
       <div className="px-6 py-5 border-b border-gray-200">
@@ -12,12 +26,8 @@ export function SettlementDefaults() {
             <Settings className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Settlement Defaults
-            </h3>
-            <p className="text-sm text-gray-500">
-              Default settlement behavior for incoming payments
-            </p>
+            <h3 className="text-base font-semibold text-gray-900">Settlement Defaults</h3>
+            <p className="text-sm text-gray-500">Default settlement behavior for incoming payments</p>
           </div>
         </div>
       </div>
@@ -30,10 +40,18 @@ export function SettlementDefaults() {
                 Default Settlement Asset
               </Label>
               <div className="flex gap-3">
-                <button className="flex-1 px-4 py-3 border-2 border-blue-600 bg-blue-50 rounded-lg text-sm font-semibold text-blue-700 transition-all hover:bg-blue-100">
+                <button className={`flex-1 px-4 py-3 border-2 rounded-lg text-sm transition-all ${
+                  settlementAsset === ASSET.SBTC
+                    ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                    : "border-gray-200 bg-white text-gray-700 font-medium"
+                }`}>
                   sBTC
                 </button>
-                <button className="flex-1 px-4 py-3 border-2 border-gray-200 bg-white rounded-lg text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-300">
+                <button className={`flex-1 px-4 py-3 border-2 rounded-lg text-sm transition-all ${
+                  settlementAsset === ASSET.USDCX
+                    ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                    : "border-gray-200 bg-white text-gray-700 font-medium"
+                }`}>
                   USDCx
                 </button>
               </div>
@@ -51,7 +69,7 @@ export function SettlementDefaults() {
                   Automatically distribute settlements across treasury buckets
                 </p>
               </div>
-              <Switch defaultChecked />
+              <Switch checked={autoSplit} />
             </div>
           </div>
 
@@ -65,7 +83,7 @@ export function SettlementDefaults() {
                   Route balances above threshold into yield strategies
                 </p>
               </div>
-              <Switch defaultChecked />
+              <Switch checked={idleYield} />
             </div>
 
             <div>
@@ -75,12 +93,12 @@ export function SettlementDefaults() {
               <div className="relative">
                 <Input
                   type="text"
-                  placeholder="0.0500"
-                  defaultValue="0.0500"
+                  value={String(yieldThreshold)}
+                  readOnly
                   className="pr-16 font-mono text-sm"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
-                  sBTC
+                  {settlementAsset === ASSET.SBTC ? "sBTC" : "USDCx"}
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">

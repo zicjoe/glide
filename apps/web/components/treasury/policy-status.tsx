@@ -1,8 +1,29 @@
 import { CheckCircle2, AlertCircle, Info } from "lucide-react";
+import type {
+  PayoutDestination,
+  TreasuryBucket,
+  TreasuryPolicy,
+} from "@/lib/contracts/types";
 
-export function PolicyStatus() {
-  const totalAllocation = 100;
-  const isValid = totalAllocation === 100;
+type PolicyStatusProps = {
+  buckets: TreasuryBucket[];
+  destinations: PayoutDestination[];
+  policy: TreasuryPolicy | null;
+  policyValid: boolean | null;
+};
+
+export function PolicyStatus({
+  buckets,
+  destinations,
+  policy,
+  policyValid,
+}: PolicyStatusProps) {
+  const totalAllocation = buckets
+    .filter((bucket) => bucket.enabled)
+    .reduce((sum, bucket) => sum + bucket.allocationBps, 0);
+
+  const activeDestinations = destinations.filter((item) => item.enabled).length;
+  const isValid = policyValid ?? totalAllocation === 10000;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
@@ -12,49 +33,37 @@ export function PolicyStatus() {
             <Info className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Policy Validation
-            </h3>
-            <p className="text-sm text-gray-500">
-              Configuration status and validation
-            </p>
+            <h3 className="text-base font-semibold text-gray-900">Policy Validation</h3>
+            <p className="text-sm text-gray-500">Configuration status and validation</p>
           </div>
         </div>
       </div>
 
       <div className="p-6">
         <div className="grid grid-cols-3 gap-6">
-          <div
-            className={`p-5 rounded-xl border ${
-              isValid ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"
-            }`}
-          >
+          <div className={`p-5 rounded-xl border ${
+            isValid ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"
+          }`}>
             <div className="flex items-center gap-2 mb-3">
               {isValid ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-amber-600" />
               )}
-              <span
-                className={`text-sm font-semibold ${
-                  isValid ? "text-green-900" : "text-amber-900"
-                }`}
-              >
+              <span className={`text-sm font-semibold ${
+                isValid ? "text-green-900" : "text-amber-900"
+              }`}>
                 Total Allocation
               </span>
             </div>
-            <div
-              className={`text-3xl font-semibold mb-1 ${
-                isValid ? "text-green-700" : "text-amber-700"
-              }`}
-            >
-              {totalAllocation}%
+            <div className={`text-3xl font-semibold mb-1 ${
+              isValid ? "text-green-700" : "text-amber-700"
+            }`}>
+              {(totalAllocation / 100).toFixed(0)}%
             </div>
-            <p
-              className={`text-xs ${
-                isValid ? "text-green-600" : "text-amber-600"
-              }`}
-            >
+            <p className={`text-xs ${
+              isValid ? "text-green-600" : "text-amber-600"
+            }`}>
               {isValid ? "Allocation is balanced" : "Must equal exactly 100%"}
             </p>
           </div>
@@ -66,69 +75,87 @@ export function PolicyStatus() {
                 Active Destinations
               </span>
             </div>
-            <div className="text-3xl font-semibold text-blue-700 mb-1">3 / 4</div>
+            <div className="text-3xl font-semibold text-blue-700 mb-1">
+              {activeDestinations} / {destinations.length}
+            </div>
             <p className="text-xs text-blue-600">
               Destinations configured and enabled
             </p>
           </div>
 
-          <div
-            className={`p-5 rounded-xl border ${
-              isValid ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
-            }`}
-          >
+          <div className={`p-5 rounded-xl border ${
+            isValid ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+          }`}>
             <div className="flex items-center gap-2 mb-3">
               {isValid ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
                 <Info className="h-5 w-5 text-gray-500" />
               )}
-              <span
-                className={`text-sm font-semibold ${
-                  isValid ? "text-green-900" : "text-gray-700"
-                }`}
-              >
+              <span className={`text-sm font-semibold ${
+                isValid ? "text-green-900" : "text-gray-700"
+              }`}>
                 Policy Status
               </span>
             </div>
-            <div
-              className={`text-lg font-semibold mb-1 ${
-                isValid ? "text-green-700" : "text-gray-600"
-              }`}
-            >
+            <div className={`text-lg font-semibold mb-1 ${
+              isValid ? "text-green-700" : "text-gray-600"
+            }`}>
               {isValid ? "Ready to Save" : "Pending Changes"}
             </div>
-            <p
-              className={`text-xs ${
-                isValid ? "text-green-600" : "text-gray-500"
-              }`}
-            >
-              {isValid ? "Configuration is valid" : "Review configuration"}
+            <p className={`text-xs ${
+              isValid ? "text-green-600" : "text-gray-500"
+            }`}>
+              {policy ? "Configuration loaded from chain" : "No policy found yet"}
             </p>
           </div>
         </div>
 
         <div className="mt-6 space-y-2">
-          <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+          <div className={`flex items-start gap-3 p-4 rounded-lg border ${
+            policy ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+          }`}>
+            {policy ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <Info className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+            )}
             <div>
-              <div className="text-sm font-semibold text-green-900 mb-1">
-                Settlement defaults configured
+              <div className={`text-sm font-semibold mb-1 ${
+                policy ? "text-green-900" : "text-gray-800"
+              }`}>
+                Settlement defaults
               </div>
-              <div className="text-xs text-green-700">
-                Default asset set to sBTC with auto-split enabled
+              <div className={`text-xs ${
+                policy ? "text-green-700" : "text-gray-600"
+              }`}>
+                {policy
+                  ? "Settlement defaults are present onchain"
+                  : "No settlement policy has been written yet"}
               </div>
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+          <div className={`flex items-start gap-3 p-4 rounded-lg border ${
+            buckets.length > 0 ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+          }`}>
+            {buckets.length > 0 ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <Info className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+            )}
             <div>
-              <div className="text-sm font-semibold text-green-900 mb-1">
-                All buckets have valid destinations
+              <div className={`text-sm font-semibold mb-1 ${
+                buckets.length > 0 ? "text-green-900" : "text-gray-800"
+              }`}>
+                Treasury buckets
               </div>
-              <div className="text-xs text-green-700">
-                Operating, Reserves, and Yield Pool are properly configured
+              <div className={`text-xs ${
+                buckets.length > 0 ? "text-green-700" : "text-gray-600"
+              }`}>
+                {buckets.length > 0
+                  ? "Treasury buckets are configured onchain"
+                  : "No treasury buckets configured yet"}
               </div>
             </div>
           </div>
@@ -137,10 +164,12 @@ export function PolicyStatus() {
             <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div>
               <div className="text-sm font-semibold text-blue-900 mb-1">
-                Yield deployment threshold set
+                Yield deployment threshold
               </div>
               <div className="text-xs text-blue-700">
-                Idle balances above 0.0500 sBTC will be deployed to yield strategies
+                {policy
+                  ? `Current threshold is ${policy.yieldThreshold}`
+                  : "Threshold will appear after policy is loaded"}
               </div>
             </div>
           </div>
