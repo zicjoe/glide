@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,20 @@ export function CreateInvoice({
   const [expiryDays, setExpiryDays] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [lastCheckoutLink, setLastCheckoutLink] = useState<string | null>(null);
 
   const parsedAmount = Number(amount || 0);
   const expiryAt = useMemo(() => futureTs(expiryDays), [expiryDays]);
+
+  function buildCheckoutLink(ref: string) {
+    if (typeof window === "undefined") return `/checkout/${encodeURIComponent(ref)}`;
+    return `${window.location.origin}/checkout/${encodeURIComponent(ref)}`;
+  }
+
+  async function copyValue(value: string) {
+    await navigator.clipboard.writeText(value);
+    setMessage("Checkout link copied.");
+  }
 
   async function onSubmit() {
     if (!merchantId) {
@@ -56,11 +67,14 @@ export function CreateInvoice({
 
     try {
       setSubmitting(true);
+      setLastCheckoutLink(null);
       setMessage("Submitting invoice transaction...");
+
+      const ref = reference.trim();
 
       await writeCreateInvoice({
         merchantId,
-        reference: reference.trim(),
+        reference: ref,
         asset,
         amount: parsedAmount,
         description: description.trim(),
@@ -73,7 +87,10 @@ export function CreateInvoice({
         await onCreated();
       }
 
-      setMessage("Invoice created and list refreshed.");
+      const checkoutLink = buildCheckoutLink(ref);
+      setLastCheckoutLink(checkoutLink);
+      setMessage("Invoice created successfully.");
+
       setReference("");
       setAmount("");
       setDescription("");
@@ -201,6 +218,33 @@ export function CreateInvoice({
             </div>
 
             {message ? <div className="text-sm text-gray-700">{message}</div> : null}
+
+            {lastCheckoutLink ? (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+                <div className="text-sm font-semibold text-blue-900">
+                  Checkout link generated
+                </div>
+                <div className="break-all text-sm text-blue-800 font-medium">
+                  {lastCheckoutLink}
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void copyValue(lastCheckoutLink)}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Link
+                  </Button>
+                  <Button type="button" asChild>
+                    <a href={lastCheckoutLink} target="_blank" rel="noreferrer">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Checkout
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="pt-2">
               <Button
