@@ -10,13 +10,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useMerchant } from "@/hooks/use-merchant";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
 import { useIndexedInvoices } from "@/hooks/use-indexed-invoices";
-import {
-  ASSET,
-  INVOICE_STATUS,
-  assetLabel,
-} from "@/lib/contracts/constants";
+import { ASSET, INVOICE_STATUS, assetLabel } from "@/lib/contracts/constants";
 
 const statusConfig = {
   open: {
@@ -78,7 +74,6 @@ function expiryLabel(expiryAt: number, status: number) {
 
   const hours = Math.floor(diff / 3600);
   const days = Math.floor(hours / 24);
-
   if (days >= 1) return `${days} day${days > 1 ? "s" : ""} left`;
   return `${hours} hour${hours !== 1 ? "s" : ""} left`;
 }
@@ -87,18 +82,13 @@ function createdLabel(createdAt: number) {
   const now = Math.floor(Date.now() / 1000);
   const diff = now - createdAt;
 
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 3600) return `${Math.max(1, Math.floor(diff / 60))} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hour(s) ago`;
   return `${Math.floor(diff / 86400)} day(s) ago`;
 }
 
 export function InvoiceList() {
-  const merchantOwner = process.env.NEXT_PUBLIC_GLIDE_MERCHANT_OWNER || null;
-  const { merchantId } = useMerchant({
-    owner: merchantOwner,
-    enabled: Boolean(merchantOwner),
-  });
-
+  const { merchantId } = useMerchantSession();
   const { invoices, loading, error } = useIndexedInvoices(merchantId);
 
   return (
@@ -123,24 +113,12 @@ export function InvoiceList() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reference
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Asset
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Expiry
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
 
@@ -155,12 +133,8 @@ export function InvoiceList() {
                   <tr key={invoice.invoiceId} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">
-                          {invoice.reference}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Merchant #{invoice.merchantId}
-                        </div>
+                        <div className="text-sm font-semibold text-gray-900">{invoice.reference}</div>
+                        <div className="text-xs text-gray-500">Merchant #{invoice.merchantId}</div>
                       </div>
                     </td>
 
@@ -181,30 +155,20 @@ export function InvoiceList() {
                         <div className="text-sm font-semibold text-gray-900">
                           {invoice.amount} {asset}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {invoice.description}
-                        </div>
+                        <div className="text-xs text-gray-500">{invoice.description}</div>
                       </div>
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md ${config.bgColor} border ${config.borderColor}`}
-                      >
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md ${config.bgColor} border ${config.borderColor}`}>
                         <StatusIcon className={`h-3.5 w-3.5 ${config.iconColor}`} />
-                        <span className={`text-xs font-semibold ${config.textColor}`}>
-                          {config.label}
-                        </span>
+                        <span className={`text-xs font-semibold ${config.textColor}`}>{config.label}</span>
                       </div>
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">
-                        {expiryLabel(invoice.expiryAt, invoice.status)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {createdLabel(invoice.createdAt)}
-                      </div>
+                      <div className="text-sm text-gray-600">{expiryLabel(invoice.expiryAt, invoice.status)}</div>
+                      <div className="text-xs text-gray-500">{createdLabel(invoice.createdAt)}</div>
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap text-right">

@@ -22,16 +22,19 @@ type DecodedInvoice = {
   settlementId: number | null;
 };
 
-function decodeInvoiceResult(result: string): DecodedInvoice | null {
+function decodeInvoiceResult(
+  invoiceId: number,
+  result: string,
+): DecodedInvoice | null {
   const decoded = decodeReadOnlyResult(result);
   if (!decoded || typeof decoded !== "object") return null;
 
   const invoice = decoded as Record<string, unknown>;
-
-  const invoiceId = Number(invoice["invoice-id"] ?? 0);
   const merchantId = Number(invoice["merchant-id"] ?? 0);
 
-  if (!invoiceId || !merchantId) return null;
+  if (!merchantId) {
+    return null;
+  }
 
   const settlementRaw = invoice["settlement-id"];
 
@@ -116,7 +119,8 @@ export async function syncInvoices(merchantId: number) {
         continue;
       }
 
-      const decoded = decodeInvoiceResult(response.result);
+      const decoded = decodeInvoiceResult(invoiceId, response.result);
+
       if (!decoded) {
         continue;
       }
@@ -127,8 +131,8 @@ export async function syncInvoices(merchantId: number) {
 
       await upsertInvoice(decoded);
       syncedCount += 1;
-    } catch (error) {
-      console.error(`invoice sync failed for id ${invoiceId}`, error);
+    } catch (_error) {
+      continue;
     }
   }
 

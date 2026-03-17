@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useMerchant } from "@/hooks/use-merchant";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
 import { writeCreateInvoice } from "@/lib/contracts/writers";
 import { ASSET, assetLabel } from "@/lib/contracts/constants";
 
@@ -15,11 +15,7 @@ function futureTs(days: number) {
 }
 
 export function CreateInvoice() {
-  const merchantOwner = process.env.NEXT_PUBLIC_GLIDE_MERCHANT_OWNER || null;
-  const { merchantId } = useMerchant({
-    owner: merchantOwner,
-    enabled: Boolean(merchantOwner),
-  });
+  const { merchantId } = useMerchantSession();
 
   const [reference, setReference] = useState("");
   const [amount, setAmount] = useState("");
@@ -34,20 +30,17 @@ export function CreateInvoice() {
 
   async function onSubmit() {
     if (!merchantId) {
-      setMessage("Merchant not found.");
+      setMessage("Merchant is not ready yet.");
       return;
     }
-
     if (!reference.trim()) {
       setMessage("Invoice reference is required.");
       return;
     }
-
     if (!parsedAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       setMessage("Enter a valid amount.");
       return;
     }
-
     if (!description.trim()) {
       setMessage("Description is required.");
       return;
@@ -73,9 +66,7 @@ export function CreateInvoice() {
       setExpiryDays(7);
       setAsset(ASSET.SBTC);
     } catch (err) {
-      setMessage(
-        err instanceof Error ? err.message : "Failed to create invoice",
-      );
+      setMessage(err instanceof Error ? err.message : "Failed to create invoice");
     } finally {
       setSubmitting(false);
     }
@@ -98,38 +89,24 @@ export function CreateInvoice() {
       <div className="p-6">
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-2 space-y-5">
+            <div className="text-xs text-gray-500">
+              Merchant ID: {merchantId ?? "Not found"}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-900 mb-2 block">
-                  Invoice Reference
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="INV-2848"
-                  className="text-sm"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                />
+                <Label className="text-sm font-medium text-gray-900 mb-2 block">Invoice Reference</Label>
+                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="INV-2848" className="text-sm" />
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-900 mb-2 block">
-                  Amount
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="100000"
-                  className="text-sm font-mono"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
+                <Label className="text-sm font-medium text-gray-900 mb-2 block">Amount</Label>
+                <Input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="100000" className="text-sm font-mono" />
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-900 mb-3 block">
-                Settlement Asset
-              </Label>
+              <Label className="text-sm font-medium text-gray-900 mb-3 block">Settlement Asset</Label>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -157,22 +134,18 @@ export function CreateInvoice() {
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-900 mb-2 block">
-                Description
-              </Label>
+              <Label className="text-sm font-medium text-gray-900 mb-2 block">Description</Label>
               <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Payment for services rendered..."
                 className="text-sm resize-none"
                 rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-900 mb-2 block">
-                Expiry
-              </Label>
+              <Label className="text-sm font-medium text-gray-900 mb-2 block">Expiry</Label>
               <div className="flex gap-3">
                 {[1, 7, 30].map((days) => (
                   <button
@@ -191,12 +164,11 @@ export function CreateInvoice() {
               </div>
             </div>
 
-            {message ? (
-              <div className="text-sm text-gray-700">{message}</div>
-            ) : null}
+            {message ? <div className="text-sm text-gray-700">{message}</div> : null}
 
             <div className="pt-2">
               <Button
+                type="button"
                 onClick={onSubmit}
                 disabled={submitting || !merchantId}
                 className="bg-blue-600 hover:bg-blue-700 text-white h-11 px-6 text-sm shadow-lg shadow-blue-600/20 transition-all font-medium w-full"
@@ -211,17 +183,13 @@ export function CreateInvoice() {
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-6 h-full">
               <div className="flex items-center gap-2 mb-4">
                 <FileText className="h-4 w-4 text-gray-600" />
-                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Preview
-                </span>
+                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Preview</span>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Reference</div>
-                  <div className="text-sm font-semibold text-gray-900">
-                    {reference || "Not set"}
-                  </div>
+                  <div className="text-sm font-semibold text-gray-900">{reference || "Not set"}</div>
                 </div>
 
                 <div>
@@ -233,18 +201,14 @@ export function CreateInvoice() {
 
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Description</div>
-                  <div className="text-xs text-gray-700 leading-relaxed">
-                    {description || "No description"}
-                  </div>
+                  <div className="text-xs text-gray-700 leading-relaxed">{description || "No description"}</div>
                 </div>
 
                 <div className="pt-3 border-t border-gray-300">
                   <div className="text-xs text-gray-500 mb-1">Status</div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 border border-amber-200 rounded-md">
                     <div className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-                    <span className="text-xs font-semibold text-amber-700">
-                      Pending Creation
-                    </span>
+                    <span className="text-xs font-semibold text-amber-700">Pending Creation</span>
                   </div>
                 </div>
 
@@ -258,7 +222,6 @@ export function CreateInvoice() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </div>    </div>
   );
 }
