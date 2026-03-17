@@ -131,3 +131,36 @@ export type IndexedInvoiceRow = {
       `/api/invoice-by-reference/${encodeURIComponent(reference)}`
     );
   }
+
+  export type IndexedSettlementRow = {
+    settlement_id: number;
+    merchant_id: number;
+    invoice_id: number;
+    asset: number;
+    gross_amount: number;
+    fee_amount: number;
+    net_amount: number;
+    status: number;
+    created_at: number;
+    completed_at: number;
+    executor: string;
+  };
+  
+  export type IndexedSettlementAllocationRow = {
+    settlement_id: number;
+    bucket_id: number;
+    allocation_bps: number;
+    amount: number;
+    destination_id: number;
+  };
+  
+  export type IndexedSettlementsResponse = {
+    settlements: IndexedSettlementRow[];
+    allocations: IndexedSettlementAllocationRow[];
+  };
+  
+  export async function getIndexedSettlements(merchantId: number) {
+    return apiGet<IndexedSettlementsResponse>(
+      `/api/settlements?merchantId=${merchantId}`
+    );
+  }

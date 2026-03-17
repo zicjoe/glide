@@ -66,6 +66,10 @@ export function RecentSettlements() {
             View all
             <ArrowUpRight className="ml-1 h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </Link>
+          <Link href="/executor" className="rounded-xl border border-gray-200 p-5 hover:bg-gray-50">
+  <div className="text-sm font-semibold text-gray-900">Executor Ops</div>
+  <div className="text-xs text-gray-600 mt-1">Verify payments and trigger settlements</div>
+</Link>
         </div>
       </div>
 

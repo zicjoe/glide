@@ -1,15 +1,18 @@
 "use client";
 
-import { Copy, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Copy, Clock, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useCheckoutInvoice } from "@/hooks/use-checkout-invoice";
 import {
   ASSET,
   INVOICE_STATUS,
+  SETTLEMENT_STATUS,
   assetLabel,
   invoiceStatusLabel,
 } from "@/lib/contracts/constants";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
+import { useIndexedSettlements } from "@/hooks/use-indexed-settlements";
 
 function expiryLabel(expiryAt: number) {
   const now = Math.floor(Date.now() / 1000);
@@ -24,7 +27,7 @@ function expiryLabel(expiryAt: number) {
   return `${hours} hour${hours !== 1 ? "s" : ""} left`;
 }
 
-function statusIcon(status: number) {
+function invoiceStatusIcon(status: number) {
   switch (status) {
     case INVOICE_STATUS.PAID:
       return <CheckCircle2 className="h-4 w-4 text-green-600" />;
@@ -36,10 +39,48 @@ function statusIcon(status: number) {
   }
 }
 
+function settlementLabel(status: number) {
+  switch (status) {
+    case SETTLEMENT_STATUS.PENDING:
+      return "Pending";
+    case SETTLEMENT_STATUS.PROCESSING:
+      return "Processing";
+    case SETTLEMENT_STATUS.COMPLETED:
+      return "Completed";
+    case SETTLEMENT_STATUS.FAILED:
+      return "Failed";
+    default:
+      return "Unknown";
+  }
+}
+
+function settlementTone(status: number) {
+  switch (status) {
+    case SETTLEMENT_STATUS.COMPLETED:
+      return "bg-green-50 border-green-200 text-green-800";
+    case SETTLEMENT_STATUS.FAILED:
+      return "bg-red-50 border-red-200 text-red-800";
+    case SETTLEMENT_STATUS.PROCESSING:
+      return "bg-blue-50 border-blue-200 text-blue-800";
+    default:
+      return "bg-amber-50 border-amber-200 text-amber-800";
+  }
+}
+
 export default function CheckoutInvoicePage() {
   const params = useParams<{ reference: string }>();
   const reference = params.reference;
-  const { invoice, paymentDestination, loading, error } = useCheckoutInvoice(reference);
+  const { invoice, paymentDestination, loading, error, refetch } =
+    useCheckoutInvoice(reference);
+
+  const { merchantId } = useMerchantSession();
+  const { settlements, loading: settlementsLoading, refetch: refetchSettlements } =
+    useIndexedSettlements(merchantId);
+
+  async function refreshStatus() {
+    await refetch();
+    await refetchSettlements();
+  }
 
   async function copyValue(value: string) {
     await navigator.clipboard.writeText(value);
@@ -69,6 +110,11 @@ export default function CheckoutInvoicePage() {
   const isOpen = invoice.status === INVOICE_STATUS.OPEN;
   const asset = assetLabel(invoice.asset);
 
+  const linkedSettlement =
+    invoice.settlementId != null
+      ? settlements.find((item) => item.settlementId === invoice.settlementId) ?? null
+      : settlements.find((item) => item.invoiceId === invoice.invoiceId) ?? null;
+
   return (
     <div className="min-h-screen bg-gray-50 px-6 py-12">
       <div className="mx-auto max-w-4xl space-y-6">
@@ -78,7 +124,7 @@ export default function CheckoutInvoicePage() {
               <div className="text-sm text-gray-500 mb-2">Invoice Reference</div>
               <div className="text-2xl font-semibold text-gray-900">{invoice.reference}</div>
               <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                {statusIcon(invoice.status)}
+                {invoiceStatusIcon(invoice.status)}
                 <span className="text-sm font-medium text-gray-700">
                   {invoiceStatusLabel(invoice.status)}
                 </span>
@@ -158,10 +204,42 @@ export default function CheckoutInvoicePage() {
             </div>
 
             <div>
-              <div className="text-xs text-gray-500 mb-1">Settlement Status</div>
-              <div className="text-sm text-gray-700">
-                {invoice.settlementId ? `Settlement #${invoice.settlementId}` : "Awaiting payment verification"}
+              <div className="text-xs text-gray-500 mb-2">Payment Status</div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="text-sm font-medium text-amber-900">
+                  {invoice.status === INVOICE_STATUS.OPEN
+                    ? "Awaiting payment"
+                    : invoiceStatusLabel(invoice.status)}
+                </div>
+                <div className="text-xs text-amber-800 mt-1">
+                  {invoice.status === INVOICE_STATUS.OPEN
+                    ? "Customer payment has not been verified yet."
+                    : "Invoice state has changed from open."}
+                </div>
               </div>
+            </div>
+
+            <div>
+              <div className="text-xs text-gray-500 mb-2">Settlement Status</div>
+              {settlementsLoading ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 flex items-center gap-2 text-sm text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking settlement...
+                </div>
+              ) : linkedSettlement ? (
+                <div className={`rounded-xl border p-4 ${settlementTone(linkedSettlement.status)}`}>
+                  <div className="text-sm font-medium">
+                    Settlement #{linkedSettlement.settlementId}
+                  </div>
+                  <div className="text-xs mt-1">
+                    {settlementLabel(linkedSettlement.status)}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  Awaiting payment verification
+                </div>
+              )}
             </div>
 
             <div>
@@ -175,6 +253,10 @@ export default function CheckoutInvoicePage() {
                 {invoice.asset === ASSET.SBTC ? "sBTC" : "USDCx"}
               </div>
             </div>
+
+            <Button type="button" variant="outline" onClick={() => void refreshStatus()}>
+              Refresh Status
+            </Button>
           </div>
         </div>
       </div>

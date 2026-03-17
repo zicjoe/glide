@@ -3,17 +3,20 @@
 import { useState } from "react";
 import { useMerchantSession } from "@/hooks/use-merchant-session";
 import { useIndexedInvoices } from "@/hooks/use-indexed-invoices";
+import { useIndexedSettlements } from "@/hooks/use-indexed-settlements";
 
 export function useInvoicesPageSession() {
   const merchantSession = useMerchantSession();
   const invoicesQuery = useIndexedInvoices(merchantSession.merchantId);
+  const settlementsQuery = useIndexedSettlements(merchantSession.merchantId);
 
   const [refreshing, setRefreshing] = useState(false);
 
-  async function refreshInvoices() {
+  async function refreshAll() {
     try {
       setRefreshing(true);
       await invoicesQuery.refetch();
+      await settlementsQuery.refetch();
     } finally {
       setRefreshing(false);
     }
@@ -21,7 +24,7 @@ export function useInvoicesPageSession() {
 
   async function refreshAfterWrite(delayMs = 5000) {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-    await refreshInvoices();
+    await refreshAll();
   }
 
   return {
@@ -29,7 +32,11 @@ export function useInvoicesPageSession() {
     invoices: invoicesQuery.invoices,
     invoicesLoading: invoicesQuery.loading,
     invoicesError: invoicesQuery.error,
-    refreshInvoices,
+    settlements: settlementsQuery.settlements,
+    settlementAllocations: settlementsQuery.allocations,
+    settlementsLoading: settlementsQuery.loading,
+    settlementsError: settlementsQuery.error,
+    refreshAll,
     refreshAfterWrite,
     refreshing,
   };
