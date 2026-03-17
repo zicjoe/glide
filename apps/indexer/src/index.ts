@@ -3,12 +3,14 @@ import { startServer } from "./api/server.js";
 import { initSchema } from "./schema.js";
 import { syncMerchant } from "./sync/merchants.js";
 import { syncTreasury } from "./sync/treasury.js";
+import { syncInvoices } from "./sync/invoice.js";
 
 async function syncAll() {
   try {
     const merchantId = await syncMerchant();
     if (merchantId) {
       await syncTreasury(merchantId);
+      await syncInvoices(merchantId);
     }
     console.log("sync complete");
   } catch (error) {

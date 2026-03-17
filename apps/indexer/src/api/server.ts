@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { healthRouter } from "./routes/health.js";
 import { merchantRouter } from "./routes/merchant.js";
 import { treasuryRouter } from "./routes/treasury.js";
+import { invoicesRouter } from "./routes/invoices.js";
 
 export function createServer() {
   const app = express();
@@ -11,6 +12,7 @@ export function createServer() {
   app.use(cors());
   app.use(express.json());
 
+  app.use("/api/invoices", invoicesRouter)
   app.use("/api/health", healthRouter);
   app.use("/api/merchant", merchantRouter);
   app.use("/api/treasury", treasuryRouter);

@@ -62,3 +62,19 @@ export async function initSchema() {
     );
   `);
 }
+
+await query(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      invoice_id INTEGER PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      reference TEXT NOT NULL,
+      asset INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      description TEXT NOT NULL,
+      expiry_at BIGINT NOT NULL,
+      status INTEGER NOT NULL,
+      created_at BIGINT NOT NULL,
+      paid_at BIGINT NOT NULL,
+      settlement_id BIGINT
+    );
+  `);  
