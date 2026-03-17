@@ -41,17 +41,22 @@ export function useMerchant(options: UseMerchantOptions = {}): UseMerchantResult
 
       let resolvedMerchantId = merchantIdInput ?? null;
 
-      if (resolvedMerchantId == null && owner) {
-        resolvedMerchantId = await readMerchantIdByOwner(glideReadClient, owner);
-      }
+      console.log("resolvedMerchantId before lookup", resolvedMerchantId);
 
-      if (resolvedMerchantId == null) {
-        setMerchant(null);
-        setMerchantId(null);
-        return;
-      }
+if (resolvedMerchantId == null && owner) {
+  resolvedMerchantId = await readMerchantIdByOwner(glideReadClient, owner);
+  console.log("resolvedMerchantId after owner lookup", resolvedMerchantId);
+}
 
-      const merchantData = await readMerchant(glideReadClient, resolvedMerchantId);
+if (resolvedMerchantId == null) {
+  console.log("no merchant id resolved");
+  setMerchant(null);
+  setMerchantId(null);
+  return;
+}
+
+const merchantData = await readMerchant(glideReadClient, resolvedMerchantId);
+console.log("merchantData", merchantData);
       setMerchant(merchantData);
       setMerchantId(resolvedMerchantId);
     } catch (err) {

@@ -1,25 +1,50 @@
+import {
+  cvToHex,
+  falseCV,
+  intCV,
+  noneCV,
+  principalCV,
+  stringAsciiCV,
+  trueCV,
+  uintCV,
+} from "@stacks/transactions";
 import { getStacksNetwork } from "./network";
 import type { GlideReadClient } from "@/lib/contracts/readers";
 
-type ReadOnlyPayload = {
-  sender?: string;
-  arguments?: unknown[];
-};
-
-function normalizeArg(arg: unknown): string {
-  if (typeof arg === "string") return arg;
-  if (typeof arg === "number" || typeof arg === "bigint" || typeof arg === "boolean") {
-    return String(arg);
+function toClarityValue(arg: unknown): any {
+  if (arg === null || arg === undefined) {
+    return noneCV();
   }
 
-  return JSON.stringify(arg);
+  if (typeof arg === "boolean") {
+    return arg ? trueCV() : falseCV();
+  }
+
+  if (typeof arg === "number") {
+    return arg < 0 ? intCV(arg) : uintCV(arg);
+  }
+
+  if (typeof arg === "string") {
+    if (
+      arg.startsWith("SP") ||
+      arg.startsWith("ST") ||
+      arg.startsWith("SM") ||
+      arg.startsWith("SN")
+    ) {
+      return principalCV(arg);
+    }
+
+    return stringAsciiCV(arg);
+  }
+
+  return arg as any;
 }
 
-async function callReadOnlyImpl(args: {
+const callReadOnlyImpl = async (args: {
   contractId: string;
   functionName: string;
   functionArgs?: unknown[];
-}): Promise<unknown> {
+}): Promise<any> => {
   const { apiUrl } = getStacksNetwork();
   const [contractAddress, contractName] = args.contractId.split(".");
 
@@ -29,10 +54,15 @@ async function callReadOnlyImpl(args: {
 
   const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/${args.functionName}`;
 
-  const payload: ReadOnlyPayload = {
+  const payload = {
     sender: contractAddress,
-    arguments: (args.functionArgs || []).map(normalizeArg),
+    arguments: (args.functionArgs ?? []).map((arg) =>
+      cvToHex(toClarityValue(arg))
+    ),
   };
+
+  console.log("read-only url", url);
+  console.log("read-only payload", payload);
 
   const response = await fetch(url, {
     method: "POST",
@@ -50,14 +80,13 @@ async function callReadOnlyImpl(args: {
     );
   }
 
-  const data = (await response.json()) as unknown;
-  return data;
-}
+  return await response.json();
+};
+
+export const glideReadClient = {
+  callReadOnly: callReadOnlyImpl,
+} as GlideReadClient;
 
 export function createGlideReadClient(): GlideReadClient {
-  return {
-    callReadOnly: callReadOnlyImpl,
-  };
+  return glideReadClient;
 }
-
-export const glideReadClient = createGlideReadClient();

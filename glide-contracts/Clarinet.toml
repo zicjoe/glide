@@ -1,0 +1,59 @@
+[project]
+name = "glide-contracts"
+description = ""
+authors = []
+telemetry = true
+cache_dir = "./.cache"
+
+# [contracts.counter]
+# path = "contracts/counter.clar"
+# epoch = "latest"
+
+# Check-checker settings:
+# trusted_sender: if true, inputs are trusted after tx_sender has been checked.
+# trusted_caller: if true, inputs are trusted after contract-caller has been checked.
+# callee_filter: if true, untrusted data may be passed into a private function without a
+# warning, if it gets checked inside. This check will also propagate up to the
+# caller.
+# More informations: https://www.hiro.so/blog/new-safety-checks-in-clarinet
+
+[repl.analysis]
+passes = ["check_checker"]
+check_checker = { trusted_sender = false, trusted_caller = false, callee_filter = false }
+
+[contracts]
+
+[contracts.glide-core]
+path = "contracts/glide-core.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-treasury]
+path = "contracts/glide-treasury.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-invoices]
+path = "contracts/glide-invoices.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-settlements]
+path = "contracts/glide-settlements.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-yield]
+path = "contracts/glide-yield.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-vault]
+path = "contracts/glide-vault.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-strategy-registry]
+path = "contracts/glide-strategy-registry.clar"
+clarity_version = 4
+epoch = "latest"

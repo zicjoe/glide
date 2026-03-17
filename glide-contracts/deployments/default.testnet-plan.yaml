@@ -1,0 +1,59 @@
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: https://api.testnet.hiro.so
+bitcoin-node: http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332
+plan:
+  batches:
+  - id: 0
+    transactions:
+    - transaction-type: contract-publish
+      contract-name: glide-core
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 31680
+      path: contracts/glide-core.clar
+      anchor-block-only: true
+      clarity-version: 4
+    - transaction-type: contract-publish
+      contract-name: glide-invoices
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 69580
+      path: contracts/glide-invoices.clar
+      anchor-block-only: true
+      clarity-version: 4
+    - transaction-type: contract-publish
+      contract-name: glide-treasury
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 99770
+      path: contracts/glide-treasury.clar
+      anchor-block-only: true
+      clarity-version: 4
+    - transaction-type: contract-publish
+      contract-name: glide-settlements
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 76590
+      path: contracts/glide-settlements.clar
+      anchor-block-only: true
+      clarity-version: 4
+    - transaction-type: contract-publish
+      contract-name: glide-strategy-registry
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 38660
+      path: contracts/glide-strategy-registry.clar
+      anchor-block-only: true
+      clarity-version: 4
+    - transaction-type: contract-publish
+      contract-name: glide-vault
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 80260
+      path: contracts/glide-vault.clar
+      anchor-block-only: true
+      clarity-version: 4
+    - transaction-type: contract-publish
+      contract-name: glide-yield
+      expected-sender: ST2NAF5CDZYMV3N2QAZP2ZFWXF4E9N4YB1KEKE6CF
+      cost: 89620
+      path: contracts/glide-yield.clar
+      anchor-block-only: true
+      clarity-version: 4
+    epoch: '3.3'
