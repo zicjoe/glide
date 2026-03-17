@@ -69,4 +69,27 @@ export async function getIndexedTreasury(merchantId: number) {
   return apiGet<IndexedTreasuryResponse>(`/api/treasury/${merchantId}`);
 }
 
-
+export type IndexedInvoiceRow = {
+    invoice_id: number;
+    merchant_id: number;
+    reference: string;
+    asset: number;
+    amount: number;
+    description: string;
+    expiry_at: number;
+    status: number;
+    created_at: number;
+    paid_at: number;
+    settlement_id: number | null;
+  };
+  
+  export type IndexedInvoicesResponse = {
+    invoices: IndexedInvoiceRow[];
+  };
+  
+  export async function getIndexedInvoices(merchantId: number) {
+    return apiGet<IndexedInvoicesResponse>(
+      `/api/invoices?merchantId=${merchantId}`
+    );
+  }
+  

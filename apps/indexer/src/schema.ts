@@ -51,19 +51,6 @@ export async function initSchema() {
   `);
 
   await query(`
-    CREATE TABLE IF NOT EXISTS activity_events (
-      id BIGSERIAL PRIMARY KEY,
-      merchant_id INTEGER,
-      event_type TEXT NOT NULL,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT NOT NULL,
-      payload_json JSONB NOT NULL,
-      created_at BIGINT NOT NULL
-    );
-  `);
-}
-
-await query(`
     CREATE TABLE IF NOT EXISTS invoices (
       invoice_id INTEGER PRIMARY KEY,
       merchant_id INTEGER NOT NULL,
@@ -77,4 +64,17 @@ await query(`
       paid_at BIGINT NOT NULL,
       settlement_id BIGINT
     );
-  `);  
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS activity_events (
+      id BIGSERIAL PRIMARY KEY,
+      merchant_id INTEGER,
+      event_type TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      payload_json JSONB NOT NULL,
+      created_at BIGINT NOT NULL
+    );
+  `);
+}

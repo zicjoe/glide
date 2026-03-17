@@ -1,10 +1,86 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useMerchant } from "@/hooks/use-merchant";
+import { writeCreateInvoice } from "@/lib/contracts/writers";
+import { ASSET, assetLabel } from "@/lib/contracts/constants";
+
+function futureTs(days: number) {
+  return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
+}
 
 export function CreateInvoice() {
+  const merchantOwner = process.env.NEXT_PUBLIC_GLIDE_MERCHANT_OWNER || null;
+  const { merchantId } = useMerchant({
+    owner: merchantOwner,
+    enabled: Boolean(merchantOwner),
+  });
+
+  const [reference, setReference] = useState("");
+  const [amount, setAmount] = useState("");
+  const [asset, setAsset] = useState<0 | 1>(ASSET.SBTC);
+  const [description, setDescription] = useState("");
+  const [expiryDays, setExpiryDays] = useState(7);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const parsedAmount = Number(amount || 0);
+  const expiryAt = useMemo(() => futureTs(expiryDays), [expiryDays]);
+
+  async function onSubmit() {
+    if (!merchantId) {
+      setMessage("Merchant not found.");
+      return;
+    }
+
+    if (!reference.trim()) {
+      setMessage("Invoice reference is required.");
+      return;
+    }
+
+    if (!parsedAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setMessage("Enter a valid amount.");
+      return;
+    }
+
+    if (!description.trim()) {
+      setMessage("Description is required.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setMessage(null);
+
+      await writeCreateInvoice({
+        merchantId,
+        reference: reference.trim(),
+        asset,
+        amount: parsedAmount,
+        description: description.trim(),
+        expiryAt,
+      });
+
+      setMessage("Invoice transaction submitted.");
+      setReference("");
+      setAmount("");
+      setDescription("");
+      setExpiryDays(7);
+      setAsset(ASSET.SBTC);
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : "Failed to create invoice",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
       <div className="px-6 py-5 border-b border-gray-200">
@@ -14,7 +90,7 @@ export function CreateInvoice() {
           </div>
           <div>
             <h3 className="text-base font-semibold text-gray-900">Create Invoice</h3>
-            <p className="text-sm text-gray-500">Generate a new payment request with checkout link</p>
+            <p className="text-sm text-gray-500">Generate a new payment request onchain</p>
           </div>
         </div>
       </div>
@@ -27,10 +103,13 @@ export function CreateInvoice() {
                 <Label className="text-sm font-medium text-gray-900 mb-2 block">
                   Invoice Reference
                 </Label>
-                <Input type="text" placeholder="INV-2848" className="text-sm" />
-                <p className="text-xs text-gray-500 mt-1.5">
-                  Unique identifier for this invoice
-                </p>
+                <Input
+                  type="text"
+                  placeholder="INV-2848"
+                  className="text-sm"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                />
               </div>
 
               <div>
@@ -39,12 +118,11 @@ export function CreateInvoice() {
                 </Label>
                 <Input
                   type="text"
-                  placeholder="0.0234"
+                  placeholder="100000"
                   className="text-sm font-mono"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
                 />
-                <p className="text-xs text-gray-500 mt-1.5">
-                  Payment amount requested
-                </p>
               </div>
             </div>
 
@@ -53,10 +131,26 @@ export function CreateInvoice() {
                 Settlement Asset
               </Label>
               <div className="flex gap-3">
-                <button className="flex-1 px-4 py-3 border-2 border-blue-600 bg-blue-50 rounded-lg text-sm font-semibold text-blue-700 transition-all hover:bg-blue-100">
+                <button
+                  type="button"
+                  onClick={() => setAsset(ASSET.SBTC)}
+                  className={`flex-1 px-4 py-3 rounded-lg text-sm transition-all ${
+                    asset === ASSET.SBTC
+                      ? "border-2 border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                      : "border-2 border-gray-200 bg-white font-medium text-gray-700"
+                  }`}
+                >
                   sBTC
                 </button>
-                <button className="flex-1 px-4 py-3 border-2 border-gray-200 bg-white rounded-lg text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-300">
+                <button
+                  type="button"
+                  onClick={() => setAsset(ASSET.USDCX)}
+                  className={`flex-1 px-4 py-3 rounded-lg text-sm transition-all ${
+                    asset === ASSET.USDCX
+                      ? "border-2 border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                      : "border-2 border-gray-200 bg-white font-medium text-gray-700"
+                  }`}
+                >
                   USDCx
                 </button>
               </div>
@@ -67,13 +161,12 @@ export function CreateInvoice() {
                 Description
               </Label>
               <Textarea
-                placeholder="Payment for services rendered, order #12345..."
+                placeholder="Payment for services rendered..."
                 className="text-sm resize-none"
                 rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
-              <p className="text-xs text-gray-500 mt-1.5">
-                Customer-facing payment description
-              </p>
             </div>
 
             <div>
@@ -81,28 +174,35 @@ export function CreateInvoice() {
                 Expiry
               </Label>
               <div className="flex gap-3">
-                <button className="px-4 py-2.5 border border-gray-300 bg-white rounded-lg text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-400">
-                  24 hours
-                </button>
-                <button className="px-4 py-2.5 border-2 border-blue-600 bg-blue-50 rounded-lg text-sm font-semibold text-blue-700 transition-all hover:bg-blue-100">
-                  7 days
-                </button>
-                <button className="px-4 py-2.5 border border-gray-300 bg-white rounded-lg text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-400">
-                  30 days
-                </button>
-                <button className="px-4 py-2.5 border border-gray-300 bg-white rounded-lg text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-400">
-                  Custom
-                </button>
+                {[1, 7, 30].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setExpiryDays(days)}
+                    className={`px-4 py-2.5 rounded-lg text-sm transition-all ${
+                      expiryDays === days
+                        ? "border-2 border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                        : "border border-gray-300 bg-white font-medium text-gray-700"
+                    }`}
+                  >
+                    {days === 1 ? "24 hours" : `${days} days`}
+                  </button>
+                ))}
               </div>
-              <p className="text-xs text-gray-500 mt-1.5">
-                Invoice will expire after this period
-              </p>
             </div>
 
+            {message ? (
+              <div className="text-sm text-gray-700">{message}</div>
+            ) : null}
+
             <div className="pt-2">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white h-11 px-6 text-sm shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 transition-all font-medium w-full">
+              <Button
+                onClick={onSubmit}
+                disabled={submitting || !merchantId}
+                className="bg-blue-600 hover:bg-blue-700 text-white h-11 px-6 text-sm shadow-lg shadow-blue-600/20 transition-all font-medium w-full"
+              >
                 <Plus className="mr-2 h-4 w-4" />
-                Generate Invoice & Checkout Link
+                {submitting ? "Submitting..." : "Generate Invoice"}
               </Button>
             </div>
           </div>
@@ -119,19 +219,22 @@ export function CreateInvoice() {
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Reference</div>
-                  <div className="text-sm font-semibold text-gray-900">INV-2848</div>
+                  <div className="text-sm font-semibold text-gray-900">
+                    {reference || "Not set"}
+                  </div>
                 </div>
 
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Amount</div>
-                  <div className="text-lg font-semibold text-gray-900">0.0234 sBTC</div>
-                  <div className="text-xs text-gray-600">≈ $1,426.50</div>
+                  <div className="text-lg font-semibold text-gray-900">
+                    {amount || "0"} {assetLabel(asset)}
+                  </div>
                 </div>
 
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Description</div>
                   <div className="text-xs text-gray-700 leading-relaxed">
-                    Payment for services rendered...
+                    {description || "No description"}
                   </div>
                 </div>
 
@@ -147,7 +250,9 @@ export function CreateInvoice() {
 
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Expires</div>
-                  <div className="text-xs text-gray-700">7 days from creation</div>
+                  <div className="text-xs text-gray-700">
+                    {expiryDays} day{expiryDays > 1 ? "s" : ""} from creation
+                  </div>
                 </div>
               </div>
             </div>

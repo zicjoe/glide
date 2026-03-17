@@ -3,7 +3,8 @@ import { startServer } from "./api/server.js";
 import { initSchema } from "./schema.js";
 import { syncMerchant } from "./sync/merchants.js";
 import { syncTreasury } from "./sync/treasury.js";
-import { syncInvoices } from "./sync/invoice.js";
+import { syncInvoices } from "./sync/invoices.js";
+
 
 async function syncAll() {
   try {

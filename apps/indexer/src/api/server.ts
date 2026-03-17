@@ -12,10 +12,10 @@ export function createServer() {
   app.use(cors());
   app.use(express.json());
 
-  app.use("/api/invoices", invoicesRouter)
   app.use("/api/health", healthRouter);
   app.use("/api/merchant", merchantRouter);
   app.use("/api/treasury", treasuryRouter);
+  app.use("/api/invoices", invoicesRouter);
 
   return app;
 }
