@@ -5,6 +5,7 @@ import { healthRouter } from "./routes/health.js";
 import { merchantRouter } from "./routes/merchant.js";
 import { treasuryRouter } from "./routes/treasury.js";
 import { invoicesRouter } from "./routes/invoices.js";
+import { settlementsRouter } from "./routes/settlements.js";
 
 export function createServer() {
   const app = express();
@@ -16,6 +17,7 @@ export function createServer() {
   app.use("/api/merchant", merchantRouter);
   app.use("/api/treasury", treasuryRouter);
   app.use("/api/invoices", invoicesRouter);
+  app.use("/api/settlements", settlementsRouter);
 
   return app;
 }

@@ -77,4 +77,32 @@ export async function initSchema() {
       created_at BIGINT NOT NULL
     );
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS settlements (
+      settlement_id INTEGER PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      invoice_id INTEGER NOT NULL,
+      asset INTEGER NOT NULL,
+      gross_amount BIGINT NOT NULL,
+      fee_amount BIGINT NOT NULL,
+      net_amount BIGINT NOT NULL,
+      status INTEGER NOT NULL,
+      created_at BIGINT NOT NULL,
+      completed_at BIGINT NOT NULL,
+      executor TEXT NOT NULL
+    );
+  `);
+  
+  await query(`
+    CREATE TABLE IF NOT EXISTS settlement_allocations (
+      settlement_id INTEGER NOT NULL,
+      bucket_id INTEGER NOT NULL,
+      allocation_bps INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      destination_id INTEGER NOT NULL,
+      PRIMARY KEY (settlement_id, bucket_id)
+    );
+  `);
+
 }

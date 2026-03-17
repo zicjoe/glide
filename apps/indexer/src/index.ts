@@ -4,7 +4,7 @@ import { initSchema } from "./schema.js";
 import { syncMerchant } from "./sync/merchants.js";
 import { syncTreasury } from "./sync/treasury.js";
 import { syncInvoices } from "./sync/invoices.js";
-
+import { syncSettlements } from "./sync/settlements.js";
 
 async function syncAll() {
   try {
@@ -12,6 +12,7 @@ async function syncAll() {
     if (merchantId) {
       await syncTreasury(merchantId);
       await syncInvoices(merchantId);
+      await syncSettlements(merchantId);
     }
     console.log("sync complete");
   } catch (error) {
