@@ -1,0 +1,72 @@
+const INDEXER_BASE_URL =
+  process.env.NEXT_PUBLIC_INDEXER_API_URL || "http://localhost:4010";
+
+async function apiGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${INDEXER_BASE_URL}${path}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Indexer request failed: ${response.status} ${text}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export type IndexedMerchantResponse = {
+  merchant: {
+    merchant_id: number;
+    owner: string;
+    active: boolean;
+    created_at: number;
+    updated_at: number;
+  } | null;
+};
+
+export type IndexedTreasuryResponse = {
+  policy: {
+    merchant_id: number;
+    settlement_asset: number;
+    auto_split: boolean;
+    idle_yield: boolean;
+    yield_threshold: number;
+    updated_at: number;
+  } | null;
+  destinations: Array<{
+    merchant_id: number;
+    destination_id: number;
+    label: string;
+    asset: number;
+    destination: string;
+    destination_type: number;
+    enabled: boolean;
+    created_at: number;
+  }>;
+  buckets: Array<{
+    merchant_id: number;
+    bucket_id: number;
+    name: string;
+    allocation_bps: number;
+    destination_id: number;
+    idle_mode: number;
+    enabled: boolean;
+    created_at: number;
+  }>;
+};
+
+export async function getIndexedMerchant(owner: string) {
+  return apiGet<IndexedMerchantResponse>(
+    `/api/merchant/${encodeURIComponent(owner)}`
+  );
+}
+
+export async function getIndexedTreasury(merchantId: number) {
+  return apiGet<IndexedTreasuryResponse>(`/api/treasury/${merchantId}`);
+}
+
+

@@ -1,7 +1,6 @@
 "use client";
 
-import { useMerchant } from "@/hooks/use-merchant";
-import { useTreasury } from "@/hooks/use-treasury";
+import { useIndexedTreasury } from "@/hooks/use-indexed-treasury";
 import { TreasuryHeader } from "@/components/treasury/treasury-header";
 import { SettlementDefaults } from "@/components/treasury/settlement-defaults";
 import { PayoutDestinations } from "@/components/treasury/payout-destinations";
@@ -14,28 +13,14 @@ export default function TreasuryPage() {
   const {
     merchant,
     merchantId,
-    loading: merchantLoading,
-    error: merchantError,
-  } = useMerchant({
-    owner: merchantOwner,
-    enabled: Boolean(merchantOwner),
-  });
-
-  const {
     policy,
     destinations,
     buckets,
     policyValid,
-    loading: treasuryLoading,
-    error: treasuryError,
+    loading,
+    error,
     refetch,
-  } = useTreasury({
-    merchantId,
-    enabled: Boolean(merchantId),
-  });
-
-  const loading = merchantLoading || treasuryLoading;
-  const error = merchantError || treasuryError;
+  } = useIndexedTreasury(merchantOwner);
 
   return (
     <div className="min-h-full">
@@ -65,7 +50,7 @@ export default function TreasuryPage() {
               Merchant not found
             </div>
             <div className="text-sm text-amber-700">
-              Check your NEXT_PUBLIC_GLIDE_MERCHANT_OWNER value or register the merchant onchain first.
+              Check your NEXT_PUBLIC_GLIDE_MERCHANT_OWNER value or bootstrap the merchant first.
             </div>
           </div>
         ) : (
