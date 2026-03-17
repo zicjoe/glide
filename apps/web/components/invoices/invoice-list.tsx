@@ -212,7 +212,7 @@ export function InvoiceList({
                               size="sm"
                               className="h-8 px-3 text-xs border-gray-300 text-gray-700 hover:bg-white hover:border-gray-400 shadow-sm font-medium"
                             >
-                              <Link href={`/invoices/${invoice.reference}`}>
+                              <Link href={`/checkout/${invoice.reference}`}>
                                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                                 Open
                               </Link>

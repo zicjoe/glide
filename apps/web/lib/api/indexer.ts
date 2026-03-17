@@ -92,4 +92,42 @@ export type IndexedInvoiceRow = {
       `/api/invoices?merchantId=${merchantId}`
     );
   }
+  export type IndexedInvoiceCheckoutResponse = {
+    invoice: {
+      invoice_id: number;
+      merchant_id: number;
+      reference: string;
+      asset: number;
+      amount: number;
+      description: string;
+      expiry_at: number;
+      status: number;
+      created_at: number;
+      paid_at: number;
+      settlement_id: number | null;
+    } | null;
+    policy: {
+      merchant_id: number;
+      settlement_asset: number;
+      auto_split: boolean;
+      idle_yield: boolean;
+      yield_threshold: number;
+      updated_at: number;
+    } | null;
+    paymentDestination: {
+      merchant_id: number;
+      destination_id: number;
+      label: string;
+      asset: number;
+      destination: string;
+      destination_type: number;
+      enabled: boolean;
+      created_at: number;
+    } | null;
+  };
   
+  export async function getIndexedInvoiceByReference(reference: string) {
+    return apiGet<IndexedInvoiceCheckoutResponse>(
+      `/api/invoice-by-reference/${encodeURIComponent(reference)}`
+    );
+  }
