@@ -196,3 +196,60 @@ export type IndexedInvoiceRow = {
     );
   }
   
+  export type IndexedYieldStrategyRow = {
+    strategy_id: number;
+    name: string;
+    asset: number;
+    risk_level: number;
+    active: boolean;
+    created_at: number;
+    updated_at: number;
+  };
+  
+  export type IndexedYieldQueueRow = {
+    queue_id: number;
+    merchant_id: number;
+    bucket_id: number;
+    asset: number;
+    amount: number;
+    strategy_id: number;
+    status: number;
+    created_at: number;
+    executor: string;
+  };
+  
+  export type IndexedYieldPositionRow = {
+    position_id: number;
+    merchant_id: number;
+    bucket_id: number;
+    asset: number;
+    amount: number;
+    strategy_id: number;
+    status: number;
+    queued_id: number;
+    deployed_at: number;
+    withdrawn_at: number;
+    executor: string;
+  };
+  
+  export type IndexedVaultBalanceRow = {
+    merchant_id: number;
+    bucket_id: number;
+    asset: number;
+    available: number;
+    queued: number;
+    deployed: number;
+    updated_at: number;
+  };
+  
+  export type IndexedYieldResponse = {
+    strategies: IndexedYieldStrategyRow[];
+    queueItems: IndexedYieldQueueRow[];
+    positions: IndexedYieldPositionRow[];
+    balances: IndexedVaultBalanceRow[];
+  };
+  
+  export async function getIndexedYield(merchantId: number) {
+    return apiGet<IndexedYieldResponse>(`/api/yield?merchantId=${merchantId}`);
+  }
+  

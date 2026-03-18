@@ -118,4 +118,61 @@ export async function initSchema() {
       created_at BIGINT NOT NULL
     );
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS strategies (
+      strategy_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      asset INTEGER NOT NULL,
+      risk_level INTEGER NOT NULL,
+      active BOOLEAN NOT NULL,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    );
+  `);
+  
+  await query(`
+    CREATE TABLE IF NOT EXISTS yield_queue_items (
+      queue_id INTEGER PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      bucket_id INTEGER NOT NULL,
+      asset INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      strategy_id INTEGER NOT NULL,
+      status INTEGER NOT NULL,
+      created_at BIGINT NOT NULL,
+      executor TEXT NOT NULL
+    );
+  `);
+  
+  await query(`
+    CREATE TABLE IF NOT EXISTS yield_positions (
+      position_id INTEGER PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      bucket_id INTEGER NOT NULL,
+      asset INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      strategy_id INTEGER NOT NULL,
+      status INTEGER NOT NULL,
+      queued_id INTEGER NOT NULL,
+      deployed_at BIGINT NOT NULL,
+      withdrawn_at BIGINT NOT NULL,
+      executor TEXT NOT NULL
+    );
+  `);
+  
+  await query(`
+    CREATE TABLE IF NOT EXISTS vault_balances (
+      merchant_id INTEGER NOT NULL,
+      bucket_id INTEGER NOT NULL,
+      asset INTEGER NOT NULL,
+      available BIGINT NOT NULL,
+      queued BIGINT NOT NULL,
+      deployed BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL,
+      PRIMARY KEY (merchant_id, bucket_id, asset)
+    );
+  `);
+  
 }
+
