@@ -176,4 +176,23 @@ export type IndexedInvoiceRow = {
     );
   }
 
+  export type IndexedActivityRow = {
+    id: number;
+    merchant_id: number | null;
+    event_type: string;
+    entity_type: string;
+    entity_id: string;
+    payload_json: any;
+    created_at: number;
+  };
+  
+  export type IndexedActivityResponse = {
+    activities: IndexedActivityRow[];
+  };
+  
+  export async function getIndexedActivity(merchantId: number, limit = 20) {
+    return apiGet<IndexedActivityResponse>(
+      `/api/activity?merchantId=${merchantId}&limit=${limit}`,
+    );
+  }
   

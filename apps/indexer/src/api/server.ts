@@ -7,6 +7,7 @@ import { treasuryRouter } from "./routes/treasury.js";
 import { invoicesRouter } from "./routes/invoices.js";
 import { settlementsRouter } from "./routes/settlements.js";
 import { invoiceByReferenceRouter } from "./routes/invoice-by-reference.js";
+import { activityRouter } from "./routes/activity.js";
 
 export function createServer() {
   const app = express();
@@ -20,6 +21,7 @@ export function createServer() {
   app.use("/api/invoices", invoicesRouter);
   app.use("/api/settlements", settlementsRouter);
   app.use("/api/invoice-by-reference", invoiceByReferenceRouter);
+  app.use("/api/activity", activityRouter);
 
   return app;
 }
