@@ -5,6 +5,7 @@ import { syncMerchant } from "./sync/merchants.js";
 import { syncTreasury } from "./sync/treasury.js";
 import { syncInvoices } from "./sync/invoices.js";
 import { syncSettlements } from "./sync/settlements.js";
+import { syncInvoicePaymentStatuses } from "./sync/payment-status.js";
 
 async function syncAll() {
   try {
@@ -13,6 +14,7 @@ async function syncAll() {
       await syncTreasury(merchantId);
       await syncInvoices(merchantId);
       await syncSettlements(merchantId);
+      await syncInvoicePaymentStatuses(merchantId);
     }
     console.log("sync complete");
   } catch (error) {

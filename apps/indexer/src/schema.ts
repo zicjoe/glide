@@ -67,18 +67,6 @@ export async function initSchema() {
   `);
 
   await query(`
-    CREATE TABLE IF NOT EXISTS activity_events (
-      id BIGSERIAL PRIMARY KEY,
-      merchant_id INTEGER,
-      event_type TEXT NOT NULL,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT NOT NULL,
-      payload_json JSONB NOT NULL,
-      created_at BIGINT NOT NULL
-    );
-  `);
-
-  await query(`
     CREATE TABLE IF NOT EXISTS settlements (
       settlement_id INTEGER PRIMARY KEY,
       merchant_id INTEGER NOT NULL,
@@ -93,7 +81,7 @@ export async function initSchema() {
       executor TEXT NOT NULL
     );
   `);
-  
+
   await query(`
     CREATE TABLE IF NOT EXISTS settlement_allocations (
       settlement_id INTEGER NOT NULL,
@@ -105,4 +93,29 @@ export async function initSchema() {
     );
   `);
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS invoice_payment_status (
+      invoice_id INTEGER PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      payment_status TEXT NOT NULL,
+      observed_amount BIGINT,
+      observed_asset INTEGER,
+      observed_txid TEXT,
+      observed_at BIGINT,
+      confirmed_at BIGINT,
+      updated_at BIGINT NOT NULL
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS activity_events (
+      id BIGSERIAL PRIMARY KEY,
+      merchant_id INTEGER,
+      event_type TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      payload_json JSONB NOT NULL,
+      created_at BIGINT NOT NULL
+    );
+  `);
 }

@@ -91,10 +91,13 @@ export default function InvoicesPage() {
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-2">
             <InvoiceList
-              invoices={invoices}
-              loading={invoicesLoading}
-              error={invoicesError}
-            />
+  invoices={invoices}
+  loading={invoicesLoading}
+  error={invoicesError}
+  onSettled={async () => {
+    await refreshAfterWrite();
+  }}
+/>
           </div>
           <div className="col-span-1">
             <InvoiceActivity />

@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { Invoice } from "@/lib/contracts/types";
 import { ASSET, INVOICE_STATUS, assetLabel } from "@/lib/contracts/constants";
+import { writeCreateSettlement } from "@/lib/contracts/writers";
 
 const statusConfig = {
   open: {
@@ -91,13 +93,49 @@ type InvoiceListProps = {
   invoices: Invoice[];
   loading: boolean;
   error: string | null;
+  onSettled?: () => Promise<void> | void;
 };
 
 export function InvoiceList({
   invoices,
   loading,
   error,
+  onSettled,
 }: InvoiceListProps) {
+  const [message, setMessage] = useState<string | null>(null);
+  const [settlingId, setSettlingId] = useState<number | null>(null);
+
+  async function handleSettle(invoice: Invoice) {
+    try {
+      setSettlingId(invoice.invoiceId);
+      setMessage(`Submitting settlement for ${invoice.reference}...`);
+
+      const grossAmount = invoice.amount;
+      const feeAmount = 0;
+
+      await writeCreateSettlement({
+        merchantId: invoice.merchantId,
+        invoiceId: invoice.invoiceId,
+        grossAmount,
+        feeAmount,
+      });
+
+      setMessage(`Settlement submitted for ${invoice.reference}. Waiting for refresh...`);
+
+      if (onSettled) {
+        await onSettled();
+      }
+
+      setMessage(`Settlement created for ${invoice.reference}.`);
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : "Failed to create settlement",
+      );
+    } finally {
+      setSettlingId(null);
+    }
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
       <div className="px-6 py-5 border-b border-gray-200">
@@ -108,6 +146,8 @@ export function InvoiceList({
           </p>
         </div>
       </div>
+
+      {message ? <div className="px-6 py-4 text-sm text-gray-700">{message}</div> : null}
 
       {loading ? (
         <div className="p-6 text-sm text-gray-600">Loading invoices...</div>
@@ -212,11 +252,23 @@ export function InvoiceList({
                               size="sm"
                               className="h-8 px-3 text-xs border-gray-300 text-gray-700 hover:bg-white hover:border-gray-400 shadow-sm font-medium"
                             >
-                              <Link href={`/checkout/${invoice.reference}`}>
+                              <Link href={`/invoices/${invoice.reference}`}>
                                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                                 Open
                               </Link>
                             </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                              onClick={() => void handleSettle(invoice)}
+                              disabled={settlingId === invoice.invoiceId}
+                            >
+                              {settlingId === invoice.invoiceId ? "Settling..." : "Settle"}
+                            </Button>
+
                             <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                               <Copy className="h-3.5 w-3.5" />
                             </button>

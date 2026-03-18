@@ -124,6 +124,17 @@ export type IndexedInvoiceRow = {
       enabled: boolean;
       created_at: number;
     } | null;
+    paymentStatus: {
+        invoice_id: number;
+        merchant_id: number;
+        payment_status: string;
+        observed_amount: number | null;
+        observed_asset: number | null;
+        observed_txid: string | null;
+        observed_at: number | null;
+        confirmed_at: number | null;
+        updated_at: number;
+      } | null;
   };
   
   export async function getIndexedInvoiceByReference(reference: string) {
@@ -164,3 +175,5 @@ export type IndexedInvoiceRow = {
       `/api/settlements?merchantId=${merchantId}`
     );
   }
+
+  

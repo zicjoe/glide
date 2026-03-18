@@ -24,6 +24,7 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
     }
 
     const merchantId = Number(invoice.merchant_id);
+    const invoiceId = Number(invoice.invoice_id);
 
     const policyResult = await query(
       `
@@ -48,10 +49,21 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
       [merchantId, Number(invoice.asset)],
     );
 
+    const paymentStatusResult = await query(
+      `
+        SELECT *
+        FROM invoice_payment_status
+        WHERE invoice_id = $1
+        LIMIT 1
+      `,
+      [invoiceId],
+    );
+
     res.json({
       invoice,
       policy: policyResult.rows[0] ?? null,
       paymentDestination: destinationResult.rows[0] ?? null,
+      paymentStatus: paymentStatusResult.rows[0] ?? null,
     });
   } catch (error) {
     console.error("invoice by reference route error", error);
