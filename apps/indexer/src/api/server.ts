@@ -9,6 +9,7 @@ import { settlementsRouter } from "./routes/settlements.js";
 import { invoiceByReferenceRouter } from "./routes/invoice-by-reference.js";
 import { activityRouter } from "./routes/activity.js";
 import { yieldRouter } from "./routes/yield.js";
+import { refundsRouter } from "./routes/refund.js";
 
 export function createServer() {
   const app = express();
@@ -24,6 +25,8 @@ export function createServer() {
   app.use("/api/invoice-by-reference", invoiceByReferenceRouter);
   app.use("/api/activity", activityRouter);
   app.use("/api/yield", yieldRouter)
+  app.use("/api/refunds", refundsRouter)
+  
 
   return app;
 }

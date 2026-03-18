@@ -174,5 +174,22 @@ export async function initSchema() {
     );
   `);
   
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS refunds (
+      refund_id TEXT PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      invoice_id INTEGER,
+      settlement_id INTEGER,
+      asset INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      destination TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL,
+      requested_by TEXT,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    );
+  `);
 }
 

@@ -1,45 +1,60 @@
+"use client";
+
 import { Activity, CheckCircle2, TrendingUp, Clock, Zap } from "lucide-react";
+import type { IndexedRefund } from "@/hooks/use-indexed-refunds";
 
-const healthMetrics = [
-  {
-    label: "Success Rate",
-    value: "94.3%",
-    status: "healthy" as const,
-    trend: "+2.1%",
-    icon: CheckCircle2,
-  },
-  {
-    label: "Avg Completion",
-    value: "4.2 hours",
-    status: "healthy" as const,
-    trend: "-0.5h",
-    icon: Clock,
-  },
-  {
-    label: "Queue Size",
-    value: "14",
-    status: "normal" as const,
-    trend: "Pending",
-    icon: Zap,
-  },
-];
-
-const statusConfig = {
-  healthy: {
-    iconColor: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-    textColor: "text-green-700",
-  },
-  normal: {
-    iconColor: "text-blue-600",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-    textColor: "text-blue-700",
-  },
+type Props = {
+  refunds: IndexedRefund[];
 };
 
-export function RefundHealth() {
+export function RefundHealth({ refunds }: Props) {
+  const total = refunds.length;
+  const completed = refunds.filter((r) => r.status === "COMPLETED").length;
+  const processing = refunds.filter((r) => r.status === "PROCESSING").length;
+  const pending = refunds.filter((r) => r.status === "PENDING").length;
+  const failed = refunds.filter((r) => r.status === "FAILED" || r.status === "REJECTED").length;
+
+  const successRate = total === 0 ? 100 : Math.round((completed / total) * 1000) / 10;
+
+  const healthMetrics = [
+    {
+      label: "Success Rate",
+      value: `${successRate}%`,
+      trend: `${completed} completed`,
+      icon: CheckCircle2,
+      status: "healthy" as const,
+    },
+    {
+      label: "Processing",
+      value: String(processing),
+      trend: `${pending} pending`,
+      icon: Clock,
+      status: "healthy" as const,
+    },
+    {
+      label: "Queue Size",
+      value: String(pending),
+      trend: `${failed} failed/rejected`,
+      icon: Zap,
+      status: "normal" as const,
+    },
+  ];
+
+  const statusConfig = {
+    healthy: {
+      iconColor: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+      textColor: "text-green-700",
+    },
+    normal: {
+      iconColor: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+      textColor: "text-blue-700",
+    },
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
       <div className="px-6 py-5 border-b border-gray-200">
@@ -89,11 +104,12 @@ export function RefundHealth() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-green-600 animate-pulse"></div>
-            <span className="text-sm font-semibold text-gray-900">Refund System Operational</span>
+            <span className="text-sm font-semibold text-gray-900">Refund System Indexed</span>
           </div>
-          <span className="text-xs text-gray-600">All routes healthy</span>
+          <span className="text-xs text-gray-600">{total} records tracked</span>
         </div>
       </div>
     </div>
   );
 }
+

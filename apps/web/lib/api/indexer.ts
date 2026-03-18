@@ -253,3 +253,25 @@ export type IndexedInvoiceRow = {
     return apiGet<IndexedYieldResponse>(`/api/yield?merchantId=${merchantId}`);
   }
   
+  export type IndexedRefundRow = {
+    refund_id: string;
+    merchant_id: number;
+    invoice_id: number | null;
+    settlement_id: number | null;
+    asset: number;
+    amount: number;
+    destination: string;
+    reason: string;
+    status: string;
+    requested_by: string | null;
+    created_at: number;
+    updated_at: number;
+  };
+  
+  export type IndexedRefundsResponse = {
+    refunds: IndexedRefundRow[];
+  };
+  
+  export async function getIndexedRefunds(merchantId: number) {
+    return apiGet<IndexedRefundsResponse>(`/api/refunds?merchantId=${merchantId}`);
+  }

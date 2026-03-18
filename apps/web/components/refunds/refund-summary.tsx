@@ -1,45 +1,59 @@
+"use client";
+
 import { RefreshCcw, Clock, CheckCircle2, XCircle } from "lucide-react";
+import type { IndexedRefund } from "@/hooks/use-indexed-refunds";
 
-const summaryCards = [
-  {
-    title: "Total Refunds",
-    value: "87",
-    subValue: "Last 30 days",
-    icon: RefreshCcw,
-    iconColor: "from-blue-500 to-blue-600",
-    iconBg: "bg-blue-50",
-    iconBorder: "border-blue-100",
-  },
-  {
-    title: "Pending Refunds",
-    value: "14",
-    subValue: "Awaiting approval",
-    icon: Clock,
-    iconColor: "from-amber-500 to-amber-600",
-    iconBg: "bg-amber-50",
-    iconBorder: "border-amber-100",
-  },
-  {
-    title: "Completed Refunds",
-    value: "68",
-    subValue: "Successfully processed",
-    icon: CheckCircle2,
-    iconColor: "from-green-500 to-green-600",
-    iconBg: "bg-green-50",
-    iconBorder: "border-green-100",
-  },
-  {
-    title: "Failed / Rejected",
-    value: "5",
-    subValue: "Requires attention",
-    icon: XCircle,
-    iconColor: "from-red-500 to-red-600",
-    iconBg: "bg-red-50",
-    iconBorder: "border-red-100",
-  },
-];
+type Props = {
+  refunds: IndexedRefund[];
+};
 
-export function RefundSummary() {
+export function RefundSummary({ refunds }: Props) {
+  const total = refunds.length;
+  const pending = refunds.filter((r) => r.status === "PENDING").length;
+  const completed = refunds.filter((r) => r.status === "COMPLETED").length;
+  const failed = refunds.filter(
+    (r) => r.status === "FAILED" || r.status === "REJECTED",
+  ).length;
+
+  const summaryCards = [
+    {
+      title: "Total Refunds",
+      value: String(total),
+      subValue: "Indexed refund records",
+      icon: RefreshCcw,
+      iconColor: "from-blue-500 to-blue-600",
+      iconBg: "bg-blue-50",
+      iconBorder: "border-blue-100",
+    },
+    {
+      title: "Pending Refunds",
+      value: String(pending),
+      subValue: "Awaiting approval",
+      icon: Clock,
+      iconColor: "from-amber-500 to-amber-600",
+      iconBg: "bg-amber-50",
+      iconBorder: "border-amber-100",
+    },
+    {
+      title: "Completed Refunds",
+      value: String(completed),
+      subValue: "Successfully processed",
+      icon: CheckCircle2,
+      iconColor: "from-green-500 to-green-600",
+      iconBg: "bg-green-50",
+      iconBorder: "border-green-100",
+    },
+    {
+      title: "Failed / Rejected",
+      value: String(failed),
+      subValue: "Requires attention",
+      icon: XCircle,
+      iconColor: "from-red-500 to-red-600",
+      iconBg: "bg-red-50",
+      iconBorder: "border-red-100",
+    },
+  ];
+
   return (
     <div className="grid grid-cols-4 gap-6">
       {summaryCards.map((card) => {
