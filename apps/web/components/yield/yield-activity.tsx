@@ -1,78 +1,52 @@
+"use client";
+
 import { Activity, TrendingUp, ArrowDownCircle, Clock, DollarSign } from "lucide-react";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
+import { useIndexedYield } from "@/hooks/use-indexed-yield";
+import { useIndexedActivity } from "@/hooks/use-indexed-activity";
 
-const recentActivities = [
-  {
-    id: 1,
-    type: "deployment" as const,
-    message: "Deployed to Stacks Yield Optimizer",
-    timestamp: "15 min ago",
-    amount: "0.0450 sBTC",
-    bucket: "Yield Pool",
-  },
-  {
-    id: 2,
-    type: "yield" as const,
-    message: "Yield earned from sBTC Staking Pool",
-    timestamp: "2 hours ago",
-    amount: "+0.0003 sBTC",
-    bucket: "Operating",
-  },
-  {
-    id: 3,
-    type: "deployment" as const,
-    message: "Deployed to Conservative Yield",
-    timestamp: "4 hours ago",
-    amount: "0.0163 sBTC",
-    bucket: "Reserves",
-  },
-  {
-    id: 4,
-    type: "withdrawal" as const,
-    message: "Withdrawn from USDCx Yield Pool",
-    timestamp: "6 hours ago",
-    amount: "234.50 USDCx",
-    bucket: "Operating",
-  },
-  {
-    id: 5,
-    type: "yield" as const,
-    message: "Yield earned from Stacks Yield Optimizer",
-    timestamp: "1 day ago",
-    amount: "+0.0005 sBTC",
-    bucket: "Yield Pool",
-  },
-  {
-    id: 6,
-    type: "deployment" as const,
-    message: "Deployed to sBTC Staking Pool",
-    timestamp: "2 days ago",
-    amount: "0.0234 sBTC",
-    bucket: "Operating",
-  },
-];
+function createdLabel(createdAt: number) {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - createdAt;
 
-const yieldProjections = [
-  {
-    label: "Est. Monthly Yield",
-    value: "0.0089 sBTC",
-    usdValue: "$542.30",
-    color: "green",
-  },
-  {
-    label: "Est. Annual Yield",
-    value: "0.1068 sBTC",
-    usdValue: "$6,507.60",
-    color: "blue",
-  },
-  {
-    label: "Total Earned (All Time)",
-    value: "0.0245 sBTC",
-    usdValue: "$1,493.50",
-    color: "purple",
-  },
-];
+  if (diff < 3600) return `${Math.max(1, Math.floor(diff / 60))} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hour(s) ago`;
+  return `${Math.floor(diff / 86400)} day(s) ago`;
+}
 
 export function YieldActivity() {
+  const { merchantId } = useMerchantSession();
+  const { positions, queueItems, loading, error } = useIndexedYield(merchantId);
+  const { activities } = useIndexedActivity(merchantId, 8);
+
+  const recentYieldActivity = activities.filter(
+    (a) =>
+      a.entityType === "yield" ||
+      a.eventType.includes("yield") ||
+      a.eventType.includes("vault"),
+  );
+
+  const totalQueued = queueItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalDeployed = positions.reduce((sum, item) => sum + item.amount, 0);
+
+  const projections = [
+    {
+      label: "Total Queued",
+      value: String(totalQueued),
+      color: "green",
+    },
+    {
+      label: "Total Deployed",
+      value: String(totalDeployed),
+      color: "blue",
+    },
+    {
+      label: "Positions",
+      value: String(positions.length),
+      color: "purple",
+    },
+  ] as const;
+
   return (
     <div className="grid grid-cols-3 gap-6">
       <div className="col-span-2">
@@ -89,51 +63,55 @@ export function YieldActivity() {
             </div>
           </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-3">
-              {recentActivities.map((activity) => {
-                let icon;
-                let iconColor;
+          {loading ? (
+            <div className="p-6 text-sm text-gray-600">Loading yield activity...</div>
+          ) : error ? (
+            <div className="p-6 text-sm text-red-600">{error}</div>
+          ) : recentYieldActivity.length === 0 ? (
+            <div className="p-6 text-sm text-gray-600">No yield activity yet.</div>
+          ) : (
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-3">
+                {recentYieldActivity.map((activity) => {
+                  let Icon = Clock;
+                  let iconColor = "text-gray-600";
 
-                switch (activity.type) {
-                  case "deployment":
-                    icon = TrendingUp;
-                    iconColor = "text-blue-600";
-                    break;
-                  case "yield":
-                    icon = DollarSign;
+                  if (activity.eventType.includes("yield")) {
+                    Icon = DollarSign;
                     iconColor = "text-green-600";
-                    break;
-                  case "withdrawal":
-                    icon = ArrowDownCircle;
+                  } else if (activity.eventType.includes("vault")) {
+                    Icon = ArrowDownCircle;
                     iconColor = "text-amber-600";
-                    break;
-                  default:
-                    icon = Clock;
-                    iconColor = "text-gray-600";
-                }
+                  } else {
+                    Icon = TrendingUp;
+                    iconColor = "text-blue-600";
+                  }
 
-                const Icon = icon;
-
-                return (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 p-4 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
-                  >
-                    <Icon className={`h-4 w-4 ${iconColor} mt-0.5 flex-shrink-0`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-900 font-medium">{activity.message}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{activity.bucket}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="text-xs text-gray-500">{activity.timestamp}</div>
-                        <div className="text-xs font-semibold text-gray-700">{activity.amount}</div>
+                  return (
+                    <div
+                      key={activity.id}
+                      className="flex items-start gap-3 p-4 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <Icon className={`h-4 w-4 ${iconColor} mt-0.5 flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-900 font-medium">
+                          {activity.eventType.replaceAll("_", " ")}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {activity.entityType} #{activity.entityId}
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="text-xs text-gray-500">
+                            {createdLabel(activity.createdAt)}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -146,13 +124,13 @@ export function YieldActivity() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Yield Projections</h3>
-                <p className="text-sm text-gray-500">Performance estimates</p>
+                <p className="text-sm text-gray-500">Indexed metrics</p>
               </div>
             </div>
           </div>
 
           <div className="p-6 space-y-4">
-            {yieldProjections.map((projection) => {
+            {projections.map((projection) => {
               const colorMap = {
                 green: {
                   bg: "bg-green-50",
@@ -171,7 +149,7 @@ export function YieldActivity() {
                 },
               };
 
-              const colors = colorMap[projection.color as keyof typeof colorMap];
+              const colors = colorMap[projection.color];
 
               return (
                 <div
@@ -183,9 +161,6 @@ export function YieldActivity() {
                   </div>
                   <div className={`text-lg font-semibold ${colors.text}`}>
                     {projection.value}
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    {projection.usdValue}
                   </div>
                 </div>
               );
