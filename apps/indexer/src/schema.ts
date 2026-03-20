@@ -69,6 +69,23 @@ export async function initSchema() {
   `);
 
   await query(`
+    CREATE TABLE IF NOT EXISTS provisional_invoices (
+      reference TEXT PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      asset INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      description TEXT NOT NULL,
+      expiry_at BIGINT NOT NULL,
+      destination_id INTEGER,
+      payment_destination TEXT NOT NULL,
+      status INTEGER NOT NULL,
+      created_at BIGINT NOT NULL,
+      paid_at BIGINT NOT NULL DEFAULT 0,
+      settlement_id BIGINT
+    );
+  `);
+
+  await query(`
     CREATE TABLE IF NOT EXISTS settlements (
       settlement_id INTEGER PRIMARY KEY,
       merchant_id INTEGER NOT NULL,
@@ -274,6 +291,11 @@ export async function initSchema() {
   await query(`
     CREATE INDEX IF NOT EXISTS idx_invoices_reference
     ON invoices(reference);
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_provisional_invoices_reference
+    ON provisional_invoices(reference);
   `);
 
   await query(`

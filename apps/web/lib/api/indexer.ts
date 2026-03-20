@@ -133,7 +133,7 @@ export async function getIndexedInvoices(merchantId: number) {
 
 export type IndexedInvoiceCheckoutResponse = {
   invoice: {
-    invoice_id: number;
+    invoice_id?: number;
     merchant_id: number;
     reference: string;
     asset: number;
@@ -146,6 +146,7 @@ export type IndexedInvoiceCheckoutResponse = {
     created_at: number;
     paid_at: number;
     settlement_id: number | null;
+    provisional?: boolean;
   } | null;
   policy: {
     merchant_id: number;
@@ -454,4 +455,45 @@ export async function getConversions(merchantId: number) {
   return apiGet<IndexedConversionsResponse>(
     `/api/conversions?merchantId=${merchantId}`,
   );
+}
+
+export type IndexedProvisionalInvoiceResponse = {
+  invoice: {
+    reference: string;
+    merchant_id: number;
+    asset: number;
+    amount: number;
+    description: string;
+    expiry_at: number;
+    destination_id: number | null;
+    payment_destination: string;
+    status: number;
+    created_at: number;
+    paid_at: number;
+    settlement_id: number | null;
+  } | null;
+};
+
+export async function saveProvisionalInvoice(args: {
+  reference: string;
+  merchantId: number;
+  asset: number;
+  amount: number;
+  description: string;
+  expiryAt: number;
+  destinationId?: number | null;
+  paymentDestination: string;
+  status?: number;
+}) {
+  return apiPost<IndexedProvisionalInvoiceResponse>("/api/provisional-invoices", {
+    reference: args.reference,
+    merchantId: args.merchantId,
+    asset: args.asset,
+    amount: args.amount,
+    description: args.description,
+    expiryAt: args.expiryAt,
+    destinationId: args.destinationId ?? null,
+    paymentDestination: args.paymentDestination,
+    status: args.status ?? 0,
+  });
 }

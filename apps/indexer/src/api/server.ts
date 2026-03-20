@@ -12,6 +12,7 @@ import { yieldRouter } from "./routes/yield.js";
 import { refundsRouter } from "./routes/refund.js";
 import { merchantRailsRouter } from "./routes/merchant-rails.js";
 import { conversionsRouter } from "./routes/conversions.js";
+import { provisionalInvoicesRouter } from "./routes/provisional-invoices.js";
 
 export function createServer() {
   const app = express();
@@ -30,6 +31,7 @@ export function createServer() {
   app.use("/api/refunds", refundsRouter);
   app.use("/api/merchant-rails", merchantRailsRouter);
   app.use("/api/conversions", conversionsRouter);
+  app.use("/api/provisional-invoices", provisionalInvoicesRouter);
 
   return app;
 }
