@@ -53,11 +53,21 @@ function railUsdPrice(label: string) {
   }
 }
 
-function quoteSettlementToRail(settlementAsset: number, settlementAmountBase: number, railLabel: string) {
+function quoteSettlementToRail(
+  settlementAsset: number,
+  settlementAmountBase: number,
+  railLabel: string,
+) {
   const settlementDecimals = settlementAsset === 0 ? 8 : 6;
   const settlementHuman = fromBaseUnits(settlementAmountBase, settlementDecimals);
   const usdValue = settlementHuman * settlementUsdPrice(settlementAsset);
-  const railHuman = usdValue / railUsdPrice(railLabel);
+  const railPrice = railUsdPrice(railLabel);
+
+  if (!railPrice || railPrice <= 0) {
+    return 0;
+  }
+
+  const railHuman = usdValue / railPrice;
   return toBaseUnits(railHuman, railDecimals(railLabel));
 }
 
@@ -70,7 +80,10 @@ function buildRailOptions(invoice: any, merchantRails: any) {
   const btcAddress = merchantRails?.btc_address || null;
   const usdcAddress = merchantRails?.usdc_address || null;
   const usdcxAddress =
-    merchantRails?.usdcx_address || merchantRails?.stacks_address || invoice.payment_destination || null;
+    merchantRails?.usdcx_address ||
+    merchantRails?.stacks_address ||
+    invoice.payment_destination ||
+    null;
 
   if (settlementAsset === 0) {
     return [
@@ -289,6 +302,36 @@ async function snapshotInvoiceRails(invoiceId: number, rails: any[]) {
   }
 }
 
+async function loadMerchantRails(merchantId: number) {
+  const merchantResult = await query(
+    `
+      SELECT *
+      FROM merchants
+      WHERE merchant_id = $1
+      LIMIT 1
+    `,
+    [merchantId],
+  );
+
+  const merchantOwner = merchantResult.rows[0]?.owner ?? null;
+
+  if (!merchantOwner) {
+    return null;
+  }
+
+  const merchantRailsResult = await query(
+    `
+      SELECT *
+      FROM merchant_receive_rails
+      WHERE owner = $1
+      LIMIT 1
+    `,
+    [merchantOwner],
+  );
+
+  return merchantRailsResult.rows[0] ?? null;
+}
+
 invoiceByReferenceRouter.get("/:reference", async (req, res) => {
   try {
     const reference = req.params.reference;
@@ -304,6 +347,26 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
     );
 
     let invoice = invoiceResult.rows[0] ?? null;
+    let provisional = false;
+
+    if (invoice) {
+      await query(`DELETE FROM provisional_invoices WHERE reference = $1`, [reference]);
+    }
+
+    if (!invoice) {
+      const provisionalResult = await query(
+        `
+          SELECT *
+          FROM provisional_invoices
+          WHERE reference = $1
+          LIMIT 1
+        `,
+        [reference],
+      );
+
+      invoice = provisionalResult.rows[0] ?? null;
+      provisional = Boolean(invoice);
+    }
 
     if (!invoice) {
       const merchantsResult = await query(
@@ -338,6 +401,11 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
       );
 
       invoice = invoiceResult.rows[0] ?? null;
+      provisional = false;
+
+      if (invoice) {
+        await query(`DELETE FROM provisional_invoices WHERE reference = $1`, [reference]);
+      }
     }
 
     if (!invoice) {
@@ -345,7 +413,7 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
     }
 
     const merchantId = Number(invoice.merchant_id);
-    const invoiceId = Number(invoice.invoice_id);
+    const invoiceId = provisional ? 0 : Number(invoice.invoice_id ?? 0);
     const destinationId =
       invoice.destination_id == null ? null : Number(invoice.destination_id);
 
@@ -359,33 +427,7 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
       [merchantId],
     );
 
-    const merchantResult = await query(
-      `
-        SELECT *
-        FROM merchants
-        WHERE merchant_id = $1
-        LIMIT 1
-      `,
-      [merchantId],
-    );
-
-    const merchantOwner = merchantResult.rows[0]?.owner ?? null;
-
-    let merchantRails = null;
-
-    if (merchantOwner) {
-      const merchantRailsResult = await query(
-        `
-          SELECT *
-          FROM merchant_receive_rails
-          WHERE owner = $1
-          LIMIT 1
-        `,
-        [merchantOwner],
-      );
-
-      merchantRails = merchantRailsResult.rows[0] ?? null;
-    }
+    const merchantRails = await loadMerchantRails(merchantId);
 
     let paymentDestination = null;
 
@@ -417,31 +459,26 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
       };
     }
 
-    const paymentStatusResult = await query(
-      `
-        SELECT *
-        FROM invoice_payment_status
-        WHERE invoice_id = $1
-        LIMIT 1
-      `,
-      [invoiceId],
-    );
+    let paymentStatus = null;
 
-    let railsResult = await query(
-      `
-        SELECT *
-        FROM invoice_payment_rails
-        WHERE invoice_id = $1
-        ORDER BY rail ASC
-      `,
-      [invoiceId],
-    );
+    if (!provisional && invoiceId > 0) {
+      const paymentStatusResult = await query(
+        `
+          SELECT *
+          FROM invoice_payment_status
+          WHERE invoice_id = $1
+          LIMIT 1
+        `,
+        [invoiceId],
+      );
 
-    if (railsResult.rows.length === 0) {
-      const generatedRails = buildRailOptions(invoice, merchantRails);
-      await snapshotInvoiceRails(invoiceId, generatedRails);
+      paymentStatus = paymentStatusResult.rows[0] ?? null;
+    }
 
-      railsResult = await query(
+    let rails: any[] = [];
+
+    if (!provisional && invoiceId > 0) {
+      let railsResult = await query(
         `
           SELECT *
           FROM invoice_payment_rails
@@ -450,24 +487,41 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
         `,
         [invoiceId],
       );
-    }
 
-    const rails = railsResult.rows.map((row) => ({
-      rail: row.rail,
-      label: row.label,
-      assetLabel: row.asset_label,
-      amount: Number(row.amount),
-      normalizedAsset: Number(row.normalized_asset),
-      normalizedAmount: Number(row.normalized_amount),
-      customerStatusLabel: row.customer_status_label,
-      cashbackEligible: Boolean(row.cashback_eligible),
-      cashbackBps: Number(row.cashback_bps),
-      cashbackAmount: Number(row.cashback_amount),
-      routeType: row.route_type,
-      visibleMessage: row.visible_message,
-      address: row.address,
-      addressLabel: row.address_label,
-    }));
+      if (railsResult.rows.length === 0) {
+        const generatedRails = buildRailOptions(invoice, merchantRails);
+        await snapshotInvoiceRails(invoiceId, generatedRails);
+
+        railsResult = await query(
+          `
+            SELECT *
+            FROM invoice_payment_rails
+            WHERE invoice_id = $1
+            ORDER BY rail ASC
+          `,
+          [invoiceId],
+        );
+      }
+
+      rails = railsResult.rows.map((row) => ({
+        rail: row.rail,
+        label: row.label,
+        assetLabel: row.asset_label,
+        amount: Number(row.amount),
+        normalizedAsset: Number(row.normalized_asset),
+        normalizedAmount: Number(row.normalized_amount),
+        customerStatusLabel: row.customer_status_label,
+        cashbackEligible: Boolean(row.cashback_eligible),
+        cashbackBps: Number(row.cashback_bps),
+        cashbackAmount: Number(row.cashback_amount),
+        routeType: row.route_type,
+        visibleMessage: row.visible_message,
+        address: row.address,
+        addressLabel: row.address_label,
+      }));
+    } else {
+      rails = buildRailOptions(invoice, merchantRails);
+    }
 
     const settlementAsset = Number(invoice.asset);
     const defaultRail =
@@ -476,10 +530,13 @@ invoiceByReferenceRouter.get("/:reference", async (req, res) => {
         : rails.find((item) => item.rail === "usdcx")?.rail ?? rails[0]?.rail ?? null;
 
     res.json({
-      invoice,
+      invoice: {
+        ...invoice,
+        provisional,
+      },
       policy: policyResult.rows[0] ?? null,
       paymentDestination,
-      paymentStatus: paymentStatusResult.rows[0] ?? null,
+      paymentStatus,
       checkout: {
         settlementAsset,
         settlementAssetLabel: settlementAssetLabel(settlementAsset),

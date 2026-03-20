@@ -10,32 +10,10 @@ import { writeCreateInvoice } from "@/lib/contracts/writers";
 import { ASSET, assetLabel } from "@/lib/contracts/constants";
 import { useMerchantSession } from "@/hooks/use-merchant-session";
 import { useIndexedTreasury } from "@/hooks/use-indexed-treasury";
-import { getIndexedInvoiceByReference } from "@/lib/api/indexer";
+import { saveProvisionalInvoice } from "@/lib/api/indexer";
 
 function futureTs(days: number) {
   return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForIndexedInvoice(reference: string, maxAttempts = 12, delayMs = 2000) {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const result = await getIndexedInvoiceByReference(reference);
-      if (result.invoice) {
-        return true;
-      }
-    } catch {
-    }
-
-    if (attempt < maxAttempts) {
-      await sleep(delayMs);
-    }
-  }
-
-  return false;
 }
 
 type CreateInvoiceProps = {
@@ -134,23 +112,25 @@ export function CreateInvoice({
         paymentDestination: resolvedPaymentDestination,
       });
 
-      setMessage("Waiting for checkout to become available...");
-
-      const indexed = await waitForIndexedInvoice(ref);
+      await saveProvisionalInvoice({
+        reference: ref,
+        merchantId,
+        asset,
+        amount: parsedAmount,
+        description: description.trim(),
+        expiryAt,
+        destinationId: selectedDestination?.destinationId ?? null,
+        paymentDestination: resolvedPaymentDestination,
+        status: 0,
+      });
 
       if (onCreated) {
         await onCreated();
       }
 
       const checkoutLink = buildCheckoutLink(ref);
-
-      if (indexed) {
-        setLastCheckoutLink(checkoutLink);
-        setMessage("Invoice created successfully.");
-      } else {
-        setLastCheckoutLink(checkoutLink);
-        setMessage("Invoice submitted. Checkout may take a few more seconds to appear.");
-      }
+      setLastCheckoutLink(checkoutLink);
+      setMessage("Invoice created successfully.");
 
       setReference("");
       setAmount("");
