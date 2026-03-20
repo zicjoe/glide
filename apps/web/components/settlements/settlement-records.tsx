@@ -5,6 +5,7 @@ import {
   ASSET,
   SETTLEMENT_STATUS,
   assetLabel,
+  formatAssetAmount,
   settlementStatusLabel,
 } from "@/lib/contracts/constants";
 
@@ -94,7 +95,7 @@ export function SettlementRecords({ settlements }: Props) {
                       #{settlement.invoiceId}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Gross {settlement.grossAmount}
+                      Gross {formatAssetAmount(settlement.grossAmount, settlement.asset)} {assetLabel(settlement.asset)}
                     </div>
                   </td>
 
@@ -112,10 +113,10 @@ export function SettlementRecords({ settlements }: Props) {
 
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-semibold text-gray-900">
-                      {settlement.netAmount}
+                    {formatAssetAmount(settlement.netAmount, settlement.asset)} {assetLabel(settlement.asset)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Fee {settlement.feeAmount}
+                      Fee {formatAssetAmount(settlement.feeAmount, settlement.asset)} {assetLabel(settlement.asset)}
                     </div>
                   </td>
 

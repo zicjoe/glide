@@ -13,6 +13,8 @@ import { refundsRouter } from "./routes/refund.js";
 import { merchantRailsRouter } from "./routes/merchant-rails.js";
 import { conversionsRouter } from "./routes/conversions.js";
 import { provisionalInvoicesRouter } from "./routes/provisional-invoices.js";
+import { paymentReceiptsRouter } from "./routes/payment-receipts.js";
+import { checkoutConfirmPaymentRouter } from "./routes/checkout-confirm-payment.js";
 
 export function createServer() {
   const app = express();
@@ -32,6 +34,8 @@ export function createServer() {
   app.use("/api/merchant-rails", merchantRailsRouter);
   app.use("/api/conversions", conversionsRouter);
   app.use("/api/provisional-invoices", provisionalInvoicesRouter);
+  app.use("/api/payment-receipts", paymentReceiptsRouter);
+  app.use("/api/checkout/confirm-payment", checkoutConfirmPaymentRouter);
 
   return app;
 }

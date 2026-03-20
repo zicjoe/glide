@@ -9,6 +9,7 @@ import { TreasuryAllocation } from "@/components/dashboard/treasury-allocation";
 import { YieldDeployment } from "@/components/dashboard/yield-deployment";
 import { ReconciliationStatus } from "@/components/dashboard/reconciliation-status";
 import { PaymentBalancesConverter } from "@/components/dashboard/payment-balances-converter";
+import { RecentPaymentReceipts } from "@/components/dashboard/recent-payment-receipts";
 
 export default function DashboardPage() {
   const {
@@ -91,6 +92,7 @@ export default function DashboardPage() {
         <MetricCards />
 
         <PaymentBalancesConverter />
+        <RecentPaymentReceipts/>
 
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-2">

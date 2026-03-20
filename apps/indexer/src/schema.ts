@@ -312,4 +312,30 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_conversion_transactions_merchant
     ON conversion_transactions(merchant_id);
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS payment_receipts (
+      receipt_id BIGSERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      reference TEXT,
+      asset_label TEXT NOT NULL,
+      amount BIGINT NOT NULL,
+      receive_address TEXT NOT NULL,
+      txid TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL,
+      invoice_reference TEXT,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    );
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_payment_receipts_merchant
+    ON payment_receipts(merchant_id);
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_payment_receipts_invoice_reference
+    ON payment_receipts(invoice_reference);
+  `);
 }

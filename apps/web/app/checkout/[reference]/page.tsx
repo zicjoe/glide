@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Copy,
   Clock,
@@ -20,6 +20,7 @@ import {
   formatRailAmount,
 } from "@/lib/contracts/constants";
 import { useIndexedSettlements } from "@/hooks/use-indexed-settlements";
+import { confirmCheckoutPayment } from "@/lib/api/indexer";
 
 function expiryLabel(expiryAt: number) {
   const now = Math.floor(Date.now() / 1000);
@@ -157,6 +158,10 @@ export default function CheckoutInvoicePage() {
     refetch: refetchSettlements,
   } = useIndexedSettlements(invoice?.merchantId ?? null);
 
+  const [txid, setTxid] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+
   async function refreshStatus() {
     await refetch();
     await refetchSettlements();
@@ -167,12 +172,52 @@ export default function CheckoutInvoicePage() {
     alert(`${label} copied`);
   }
 
+  async function onConfirmPaid() {
+    if (!invoice || !selectedRail) {
+      setConfirmMessage("Invoice or payment rail not ready.");
+      return;
+    }
+
+    if (!txid.trim()) {
+      setConfirmMessage("Please paste the transaction ID.");
+      return;
+    }
+
+    if (!selectedRail.address) {
+      setConfirmMessage("Selected rail does not have a receiving address.");
+      return;
+    }
+
+    try {
+      setConfirming(true);
+      setConfirmMessage("Confirming payment and distributing to treasury...");
+
+      await confirmCheckoutPayment({
+        reference: invoice.reference,
+        merchantId: invoice.merchantId,
+        rail: selectedRail.rail,
+        assetLabel: selectedRail.assetLabel,
+        amount: Number(selectedRail.amount),
+        txid: txid.trim(),
+        receiveAddress: selectedRail.address,
+      });
+
+      setConfirmMessage("Payment confirmed. Merchant balances updated.");
+      setTxid("");
+      await refreshStatus();
+    } catch (err) {
+      setConfirmMessage(
+        err instanceof Error ? err.message : "Failed to confirm payment",
+      );
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   const linkedSettlement = useMemo(() => {
     if (!invoice) return null;
 
-    return invoice.settlementId != null
-      ? settlements.find((item) => item.settlementId === invoice.settlementId) ?? null
-      : settlements.find((item) => item.invoiceId === invoice.invoiceId) ?? null;
+    return settlements.find((item) => item.invoiceId === (invoice.invoiceId ?? 0)) ?? null;
   }, [invoice, settlements]);
 
   if (loading) {
@@ -203,15 +248,9 @@ export default function CheckoutInvoicePage() {
   const isOpen = invoice.status === INVOICE_STATUS.OPEN;
   const paymentAddress = selectedRail?.address ?? null;
   const paymentAddressLabel = selectedRail?.addressLabel ?? "Payment address";
-
   const displayAmount = selectedRail
     ? formatRailAmount(Number(selectedRail.amount), selectedRail.assetLabel)
     : "0";
-
-  const settlementDisplayAmount = formatAssetAmount(
-    Number(checkout.settlementAmount ?? 0),
-    Number(checkout.settlementAsset),
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 px-6 py-12">
@@ -237,7 +276,7 @@ export default function CheckoutInvoicePage() {
                 {checkout.settlementAssetLabel}
               </div>
               <div className="mt-2 text-sm text-gray-500">
-                {settlementDisplayAmount} {checkout.settlementAssetLabel}
+                {formatAssetAmount(checkout.settlementAmount, checkout.settlementAsset)} {checkout.settlementAssetLabel}
               </div>
               <div className="mt-1 text-sm text-gray-500">
                 {isOpen ? expiryLabel(invoice.expiryAt) : "Invoice closed"}
@@ -263,10 +302,7 @@ export default function CheckoutInvoicePage() {
               <div className="grid grid-cols-2 gap-3 mb-6">
                 {checkout.rails.map((rail) => {
                   const isSelected = selectedRailKey === rail.rail;
-                  const railAmount = formatRailAmount(
-                    Number(rail.amount),
-                    rail.assetLabel,
-                  );
+                  const railAmount = formatRailAmount(Number(rail.amount), rail.assetLabel);
 
                   return (
                     <button
@@ -315,7 +351,9 @@ export default function CheckoutInvoicePage() {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => void copyValue(`${displayAmount}`, "Amount")}
+                          onClick={() =>
+                            void copyValue(`${displayAmount}`, "Amount")
+                          }
                         >
                           <Copy className="mr-2 h-4 w-4" />
                           Copy Amount
@@ -352,14 +390,44 @@ export default function CheckoutInvoicePage() {
                   )}
                 </div>
 
-                <div className="rounded-xl border border-blue-200 bg-white p-4">
-                  <div className="text-sm font-medium text-gray-900 mb-2">
-                    Payment instructions
+                <div className="rounded-xl border border-blue-200 bg-white p-4 space-y-4">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 mb-2">
+                      Payment instructions
+                    </div>
+                    <div className="text-sm text-gray-700 leading-relaxed">
+                      {selectedRail?.visibleMessage ??
+                        "Choose a payment rail to continue."}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-700 leading-relaxed">
-                    {selectedRail?.visibleMessage ??
-                      "Choose a payment rail to continue."}
+
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 mb-2">
+                      Paste transaction ID
+                    </div>
+                    <input
+                      value={txid}
+                      onChange={(e) => setTxid(e.target.value)}
+                      placeholder="Enter transaction hash"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono"
+                    />
+                    <div className="text-xs text-gray-500 mt-2">
+                      Demo/test flow: after sending payment, paste txid and confirm.
+                    </div>
                   </div>
+
+                  {confirmMessage ? (
+                    <div className="text-sm text-gray-700">{confirmMessage}</div>
+                  ) : null}
+
+                  <Button
+                    type="button"
+                    onClick={() => void onConfirmPaid()}
+                    disabled={confirming || !selectedRail || !txid.trim()}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {confirming ? "Confirming..." : "I’ve Paid"}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -379,7 +447,7 @@ export default function CheckoutInvoicePage() {
                   Settlement currency
                 </div>
                 <div className="text-sm font-semibold text-gray-900">
-                  {settlementDisplayAmount} {checkout.settlementAssetLabel}
+                  {formatAssetAmount(checkout.settlementAmount, checkout.settlementAsset)} {checkout.settlementAssetLabel}
                 </div>
               </div>
 
@@ -405,7 +473,7 @@ export default function CheckoutInvoicePage() {
             <div>
               <div className="text-xs text-gray-500 mb-1">Invoice ID</div>
               <div className="text-sm font-semibold text-gray-900">
-                {invoice.invoiceId}
+                {invoice.invoiceId ?? "Pending index"}
               </div>
             </div>
 
@@ -475,7 +543,7 @@ export default function CheckoutInvoicePage() {
             <div>
               <div className="text-xs text-gray-500 mb-1">Settle to</div>
               <div className="text-sm text-gray-700">
-                {settlementDisplayAmount} {checkout.settlementAssetLabel}
+                {formatAssetAmount(checkout.settlementAmount, checkout.settlementAsset)} {checkout.settlementAssetLabel}
               </div>
             </div>
 

@@ -1,6 +1,11 @@
 "use client";
 
-import { SETTLEMENT_STATUS } from "@/lib/contracts/constants";
+import {
+  SETTLEMENT_STATUS,
+  ASSET,
+  assetLabel,
+  formatAssetAmount,
+} from "@/lib/contracts/constants";
 import type { IndexedSettlement } from "@/hooks/use-indexed-settlements";
 
 type Props = {
@@ -13,22 +18,57 @@ function sum(items: number[]) {
 
 export function SettlementSummary({ settlements }: Props) {
   const totalCount = settlements.length;
+
   const completedCount = settlements.filter(
     (s) => s.status === SETTLEMENT_STATUS.COMPLETED,
   ).length;
+
   const pendingCount = settlements.filter(
     (s) =>
       s.status === SETTLEMENT_STATUS.PENDING ||
       s.status === SETTLEMENT_STATUS.PROCESSING,
   ).length;
+
+  const sbtcNet = sum(
+    settlements
+      .filter((s) => s.asset === ASSET.SBTC)
+      .map((s) => s.netAmount),
+  );
+
+  const usdcxNet = sum(
+    settlements
+      .filter((s) => s.asset === ASSET.USDCX)
+      .map((s) => s.netAmount),
+  );
+
+  const uniqueAssets = Array.from(new Set(settlements.map((s) => s.asset)));
+  const singleAsset = uniqueAssets.length === 1 ? uniqueAssets[0] : null;
   const totalNet = sum(settlements.map((s) => s.netAmount));
 
-  const cards = [
-    { label: "Total Settlements", value: String(totalCount) },
-    { label: "Pending / Processing", value: String(pendingCount) },
-    { label: "Completed", value: String(completedCount) },
-    { label: "Net Settled", value: String(totalNet) },
-  ];
+  const cards =
+    singleAsset != null
+      ? [
+          { label: "Total Settlements", value: String(totalCount) },
+          { label: "Pending / Processing", value: String(pendingCount) },
+          { label: "Completed", value: String(completedCount) },
+          {
+            label: "Net Settled",
+            value: `${formatAssetAmount(totalNet, singleAsset)} ${assetLabel(singleAsset)}`,
+          },
+        ]
+      : [
+          { label: "Total Settlements", value: String(totalCount) },
+          { label: "Pending / Processing", value: String(pendingCount) },
+          { label: "Completed", value: String(completedCount) },
+          {
+            label: "Net Settled sBTC",
+            value: `${formatAssetAmount(sbtcNet, ASSET.SBTC)} ${assetLabel(ASSET.SBTC)}`,
+          },
+          {
+            label: "Net Settled USDCx",
+            value: `${formatAssetAmount(usdcxNet, ASSET.USDCX)} ${assetLabel(ASSET.USDCX)}`,
+          },
+        ];
 
   return (
     <div className="grid grid-cols-4 gap-6">

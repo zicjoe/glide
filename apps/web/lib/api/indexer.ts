@@ -496,4 +496,74 @@ export async function saveProvisionalInvoice(args: {
     paymentDestination: args.paymentDestination,
     status: args.status ?? 0,
   });
+
+}
+export type IndexedPaymentReceiptRow = {
+  receipt_id: number;
+  merchant_id: number;
+  reference: string | null;
+  asset_label: string;
+  amount: number;
+  receive_address: string;
+  txid: string;
+  status: string;
+  invoice_reference: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
+export type IndexedPaymentReceiptsResponse = {
+  receipts: IndexedPaymentReceiptRow[];
+};
+
+export async function getPaymentReceipts(merchantId: number) {
+  return apiGet<IndexedPaymentReceiptsResponse>(
+    `/api/payment-receipts?merchantId=${merchantId}`,
+  );
+}
+
+export async function savePaymentReceipt(args: {
+  merchantId: number;
+  reference?: string | null;
+  assetLabel: string;
+  amount: number;
+  receiveAddress: string;
+  txid: string;
+  status?: string;
+  invoiceReference?: string | null;
+}) {
+  return apiPost<{ receipt: IndexedPaymentReceiptRow }>("/api/payment-receipts", {
+    merchantId: args.merchantId,
+    reference: args.reference ?? null,
+    assetLabel: args.assetLabel,
+    amount: args.amount,
+    receiveAddress: args.receiveAddress,
+    txid: args.txid,
+    status: args.status ?? "received",
+    invoiceReference: args.invoiceReference ?? null,
+  });
+}
+export async function confirmCheckoutPayment(args: {
+  reference: string;
+  merchantId: number;
+  rail: string;
+  assetLabel: string;
+  amount: number;
+  txid: string;
+  receiveAddress: string;
+}) {
+  return apiPost<{
+    ok: boolean;
+    receipt: any;
+    settlement: any;
+    allocations: any[];
+  }>("/api/checkout/confirm-payment", {
+    reference: args.reference,
+    merchantId: args.merchantId,
+    rail: args.rail,
+    assetLabel: args.assetLabel,
+    amount: args.amount,
+    txid: args.txid,
+    receiveAddress: args.receiveAddress,
+  });
 }

@@ -16,6 +16,34 @@ function futureTs(days: number) {
   return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
 }
 
+function assetDecimals(asset: number) {
+  return asset === ASSET.SBTC ? 8 : 6;
+}
+
+function parseDisplayAmountToBaseUnits(raw: string, decimals: number): number | null {
+  const value = raw.trim();
+
+  if (!value) return null;
+  if (!/^\d+(\.\d+)?$/.test(value)) return null;
+
+  const [whole, fraction = ""] = value.split(".");
+
+  if (fraction.length > decimals) {
+    return null;
+  }
+
+  const paddedFraction = (fraction + "0".repeat(decimals)).slice(0, decimals);
+  const combined = `${whole}${paddedFraction}`.replace(/^0+(?=\d)/, "");
+
+  const parsed = Number(combined || "0");
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
 type CreateInvoiceProps = {
   merchantId: number | null;
   onCreated?: () => Promise<void> | void;
@@ -39,8 +67,11 @@ export function CreateInvoice({
   const [message, setMessage] = useState<string | null>(null);
   const [lastCheckoutLink, setLastCheckoutLink] = useState<string | null>(null);
 
-  const parsedAmount = Number(amount || 0);
   const expiryAt = useMemo(() => futureTs(expiryDays), [expiryDays]);
+  const parsedAmountBaseUnits = useMemo(
+    () => parseDisplayAmountToBaseUnits(amount, assetDecimals(asset)),
+    [amount, asset],
+  );
 
   const assetDestinations = destinations.filter(
     (item) => item.asset === asset && item.enabled,
@@ -79,8 +110,12 @@ export function CreateInvoice({
       return;
     }
 
-    if (!parsedAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      setMessage("Enter a valid amount.");
+    if (parsedAmountBaseUnits == null) {
+      setMessage(
+        asset === ASSET.SBTC
+          ? "Enter a valid sBTC amount with up to 8 decimals."
+          : "Enter a valid USDCx amount with up to 6 decimals.",
+      );
       return;
     }
 
@@ -105,7 +140,7 @@ export function CreateInvoice({
         merchantId,
         reference: ref,
         asset,
-        amount: parsedAmount,
+        amount: parsedAmountBaseUnits,
         description: description.trim(),
         expiryAt,
         destinationId: selectedDestination?.destinationId ?? null,
@@ -116,7 +151,7 @@ export function CreateInvoice({
         reference: ref,
         merchantId,
         asset,
-        amount: parsedAmount,
+        amount: parsedAmountBaseUnits,
         description: description.trim(),
         expiryAt,
         destinationId: selectedDestination?.destinationId ?? null,
@@ -189,9 +224,14 @@ export function CreateInvoice({
                 <Input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="100000"
+                  placeholder={asset === ASSET.SBTC ? "0.005" : "500"}
                   className="text-sm font-mono"
                 />
+                <p className="text-xs text-gray-500 mt-2">
+                  {asset === ASSET.SBTC
+                    ? "sBTC supports up to 8 decimals."
+                    : "USDCx supports up to 6 decimals."}
+                </p>
               </div>
             </div>
 
