@@ -1,7 +1,17 @@
 "use client";
 
 import { connect, disconnect, isConnected, request } from "@stacks/connect";
-import { Cl, cvToHex } from "@stacks/transactions";
+import {
+  cvToHex,
+  falseCV,
+  noneCV,
+  principalCV,
+  someCV,
+  stringAsciiCV,
+  stringUtf8CV,
+  trueCV,
+  uintCV,
+} from "@stacks/transactions";
 
 const ADDRESS_KEY = "glide.stacks.address";
 const BTC_ADDRESS_KEY = "glide.btc.address";
@@ -143,11 +153,11 @@ export async function callPublic(args: ContractCallArgs) {
 }
 
 export const cv = {
-  uint: (value: number | string | bigint) => Cl.uint(value),
-  ascii: (value: string) => Cl.stringAscii(value),
-  utf8: (value: string) => Cl.stringUtf8(value),
-  bool: (value: boolean) => (value ? Cl.bool(true) : Cl.bool(false)),
-  principal: (value: string) => Cl.principal(value),
-  none: () => Cl.none(),
-  some: (value: any) => Cl.some(value),
+  uint: (value: number | string | bigint) => uintCV(value),
+  ascii: (value: string) => stringAsciiCV(value),
+  utf8: (value: string) => stringUtf8CV(value),
+  bool: (value: boolean) => (value ? trueCV() : falseCV()),
+  principal: (value: string) => principalCV(value),
+  none: () => noneCV(),
+  some: (value: any) => someCV(value),
 };
