@@ -14,18 +14,17 @@ type WalletAddressEntry = {
 };
 
 function pickStacksAddress(entries: WalletAddressEntry[] = []) {
-  const stacksMatch =
+  return (
     entries.find((item) => item.symbol?.toLowerCase() === "stx")?.address ||
     entries.find((item) => item.symbol?.toLowerCase().includes("stacks"))?.address ||
     entries.find((item) => typeof item.address === "string" && item.address.startsWith("SP"))?.address ||
     entries.find((item) => typeof item.address === "string" && item.address.startsWith("ST"))?.address ||
-    null;
-
-  return stacksMatch ?? null;
+    null
+  );
 }
 
 function pickBtcAddress(entries: WalletAddressEntry[] = []) {
-  const btcMatch =
+  return (
     entries.find((item) => item.symbol?.toLowerCase() === "btc")?.address ||
     entries.find((item) => item.symbol?.toLowerCase().includes("bitcoin"))?.address ||
     entries.find(
@@ -39,12 +38,15 @@ function pickBtcAddress(entries: WalletAddressEntry[] = []) {
           item.address.startsWith("n") ||
           item.address.startsWith("2")),
     )?.address ||
-    null;
-
-  return btcMatch ?? null;
+    null
+  );
 }
 
-function persistWalletAddresses(stacksAddress: string | null, btcAddress: string | null, entries: WalletAddressEntry[] = []) {
+function persistWalletAddresses(
+  stacksAddress: string | null,
+  btcAddress: string | null,
+  entries: WalletAddressEntry[] = [],
+) {
   if (typeof window === "undefined") return;
 
   if (stacksAddress) {
@@ -97,11 +99,7 @@ export async function connectWallet() {
     ? result.addresses
     : [];
 
-  const stacksAddress =
-    pickStacksAddress(entries) ||
-    result?.address ||
-    null;
-
+  const stacksAddress = pickStacksAddress(entries) || result?.address || null;
   const btcAddress = pickBtcAddress(entries);
 
   persistWalletAddresses(stacksAddress, btcAddress, entries);
@@ -145,11 +143,11 @@ export async function callPublic(args: ContractCallArgs) {
 }
 
 export const cv = {
-  uint: Cl.uint,
-  ascii: Cl.stringAscii,
-  utf8: Cl.stringUtf8,
+  uint: (value: number | string | bigint) => Cl.uint(value),
+  ascii: (value: string) => Cl.stringAscii(value),
+  utf8: (value: string) => Cl.stringUtf8(value),
   bool: (value: boolean) => (value ? Cl.bool(true) : Cl.bool(false)),
-  principal: Cl.principal,
-  none: Cl.none,
-  some: Cl.some,
+  principal: (value: string) => Cl.principal(value),
+  none: () => Cl.none(),
+  some: (value: any) => Cl.some(value),
 };
