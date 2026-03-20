@@ -51,19 +51,17 @@ export type CheckoutRail = {
   addressLabel: string;
 };
 
-export type CheckoutQuoteSource = {
-  btcUsd: number;
-  usdcUsd: number;
-  usdcxUsd: number;
-  sbtcBtc: number;
-  mode: string;
-};
-
 export type CheckoutData = {
   settlementAsset: number;
   settlementAssetLabel: string;
   settlementAmount: number;
-  quoteSource: CheckoutQuoteSource | null;
+  quoteSource: {
+    btcUsd: number;
+    usdcUsd: number;
+    usdcxUsd: number;
+    sbtcBtc: number;
+    mode: string;
+  } | null;
   defaultRail: string | null;
   rails: CheckoutRail[];
 };
@@ -79,6 +77,10 @@ type UseCheckoutInvoiceResult = {
   error: string | null;
   refetch: () => Promise<void>;
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function mapInvoice(
   row: NonNullable<IndexedInvoiceCheckoutResponse["invoice"]>,
@@ -129,14 +131,14 @@ function mapCheckout(
   return {
     settlementAsset: Number(row.settlementAsset),
     settlementAssetLabel: String(row.settlementAssetLabel),
-    settlementAmount: Number(row.settlementAmount ?? 0),
+    settlementAmount: Number(row.settlementAmount),
     quoteSource: row.quoteSource
       ? {
-          btcUsd: Number(row.quoteSource.btcUsd ?? 0),
-          usdcUsd: Number(row.quoteSource.usdcUsd ?? 0),
-          usdcxUsd: Number(row.quoteSource.usdcxUsd ?? 0),
-          sbtcBtc: Number(row.quoteSource.sbtcBtc ?? 0),
-          mode: String(row.quoteSource.mode ?? ""),
+          btcUsd: Number(row.quoteSource.btcUsd),
+          usdcUsd: Number(row.quoteSource.usdcUsd),
+          usdcxUsd: Number(row.quoteSource.usdcxUsd),
+          sbtcBtc: Number(row.quoteSource.sbtcBtc),
+          mode: String(row.quoteSource.mode),
         }
       : null,
     defaultRail: row.defaultRail ? String(row.defaultRail) : null,
@@ -161,8 +163,7 @@ function mapCheckout(
 
 export function useCheckoutInvoice(reference: string): UseCheckoutInvoiceResult {
   const [invoice, setInvoice] = useState<CheckoutInvoice | null>(null);
-  const [paymentStatus, setPaymentStatus] =
-    useState<CheckoutPaymentStatus | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<CheckoutPaymentStatus | null>(null);
   const [checkout, setCheckout] = useState<CheckoutData | null>(null);
   const [selectedRailKey, setSelectedRailKeyState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,12 +172,7 @@ export function useCheckoutInvoice(reference: string): UseCheckoutInvoiceResult 
   const selectedRail = useMemo(() => {
     if (!checkout) return null;
     if (!selectedRailKey) return checkout.rails[0] ?? null;
-
-    return (
-      checkout.rails.find((rail) => rail.rail === selectedRailKey) ??
-      checkout.rails[0] ??
-      null
-    );
+    return checkout.rails.find((rail) => rail.rail === selectedRailKey) ?? checkout.rails[0] ?? null;
   }, [checkout, selectedRailKey]);
 
   function setSelectedRailKey(rail: string) {
@@ -188,14 +184,29 @@ export function useCheckoutInvoice(reference: string): UseCheckoutInvoiceResult 
       setLoading(true);
       setError(null);
 
-      const result = await getIndexedInvoiceByReference(reference);
+      let result: IndexedInvoiceCheckoutResponse | null = null;
 
-      if (!result.invoice) {
+      for (let attempt = 1; attempt <= 8; attempt++) {
+        try {
+          const response = await getIndexedInvoiceByReference(reference);
+          if (response.invoice) {
+            result = response;
+            break;
+          }
+        } catch {
+        }
+
+        if (attempt < 8) {
+          await sleep(1500);
+        }
+      }
+
+      if (!result || !result.invoice) {
         setInvoice(null);
         setPaymentStatus(null);
         setCheckout(null);
         setSelectedRailKeyState(null);
-        setError("Invoice not found");
+        setError("Invoice not found yet. Please wait a few seconds and refresh.");
         return;
       }
 
@@ -203,16 +214,13 @@ export function useCheckoutInvoice(reference: string): UseCheckoutInvoiceResult 
       const mappedCheckout = result.checkout ? mapCheckout(result.checkout) : null;
 
       setInvoice(mappedInvoice);
-      setPaymentStatus(
-        result.paymentStatus ? mapPaymentStatus(result.paymentStatus) : null,
-      );
+      setPaymentStatus(result.paymentStatus ? mapPaymentStatus(result.paymentStatus) : null);
       setCheckout(mappedCheckout);
 
       setSelectedRailKeyState((current) => {
         if (current && mappedCheckout?.rails.some((rail) => rail.rail === current)) {
           return current;
         }
-
         return mappedCheckout?.defaultRail ?? mappedCheckout?.rails[0]?.rail ?? null;
       });
     } catch (err) {

@@ -10,33 +10,32 @@ import { writeCreateInvoice } from "@/lib/contracts/writers";
 import { ASSET, assetLabel } from "@/lib/contracts/constants";
 import { useMerchantSession } from "@/hooks/use-merchant-session";
 import { useIndexedTreasury } from "@/hooks/use-indexed-treasury";
+import { getIndexedInvoiceByReference } from "@/lib/api/indexer";
 
 function futureTs(days: number) {
   return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
 }
 
-function assetDecimals(asset: 0 | 1) {
-  return asset === ASSET.SBTC ? 8 : 6;
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function toBaseUnits(value: string, decimals: number): number | null {
-  const trimmed = value.trim();
+async function waitForIndexedInvoice(reference: string, maxAttempts = 12, delayMs = 2000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await getIndexedInvoiceByReference(reference);
+      if (result.invoice) {
+        return true;
+      }
+    } catch {
+    }
 
-  if (!trimmed) return null;
-  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
-
-  const [whole, fraction = ""] = trimmed.split(".");
-
-  if (fraction.length > decimals) {
-    return null;
+    if (attempt < maxAttempts) {
+      await sleep(delayMs);
+    }
   }
 
-  const paddedFraction = (fraction + "0".repeat(decimals)).slice(0, decimals);
-  const normalized = `${whole}${paddedFraction}`.replace(/^0+$/, "0");
-  const parsed = Number(normalized);
-
-  if (Number.isNaN(parsed)) return null;
-  return parsed;
+  return false;
 }
 
 type CreateInvoiceProps = {
@@ -62,12 +61,7 @@ export function CreateInvoice({
   const [message, setMessage] = useState<string | null>(null);
   const [lastCheckoutLink, setLastCheckoutLink] = useState<string | null>(null);
 
-  const decimals = useMemo(() => assetDecimals(asset), [asset]);
-
-  const parsedAmount = useMemo(() => {
-    return toBaseUnits(amount, decimals);
-  }, [amount, decimals]);
-
+  const parsedAmount = Number(amount || 0);
   const expiryAt = useMemo(() => futureTs(expiryDays), [expiryDays]);
 
   const assetDestinations = destinations.filter(
@@ -107,12 +101,8 @@ export function CreateInvoice({
       return;
     }
 
-    if (parsedAmount == null || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      setMessage(
-        asset === ASSET.SBTC
-          ? "Enter a valid sBTC amount with up to 8 decimals."
-          : "Enter a valid USDCx amount with up to 6 decimals.",
-      );
+    if (!parsedAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setMessage("Enter a valid amount.");
       return;
     }
 
@@ -144,15 +134,23 @@ export function CreateInvoice({
         paymentDestination: resolvedPaymentDestination,
       });
 
-      setMessage("Invoice submitted. Waiting for indexer refresh...");
+      setMessage("Waiting for checkout to become available...");
+
+      const indexed = await waitForIndexedInvoice(ref);
 
       if (onCreated) {
         await onCreated();
       }
 
       const checkoutLink = buildCheckoutLink(ref);
-      setLastCheckoutLink(checkoutLink);
-      setMessage("Invoice created successfully.");
+
+      if (indexed) {
+        setLastCheckoutLink(checkoutLink);
+        setMessage("Invoice created successfully.");
+      } else {
+        setLastCheckoutLink(checkoutLink);
+        setMessage("Invoice submitted. Checkout may take a few more seconds to appear.");
+      }
 
       setReference("");
       setAmount("");
@@ -211,14 +209,9 @@ export function CreateInvoice({
                 <Input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={asset === ASSET.SBTC ? "0.00125000" : "500.250000"}
+                  placeholder="100000"
                   className="text-sm font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  {asset === ASSET.SBTC
-                    ? "Supports up to 8 decimals for sBTC."
-                    : "Supports up to 6 decimals for USDCx."}
-                </p>
               </div>
             </div>
 
@@ -439,13 +432,6 @@ export function CreateInvoice({
                   <div className="text-xs text-gray-500 mb-1">Expires</div>
                   <div className="text-xs text-gray-700">
                     {expiryDays} day{expiryDays > 1 ? "s" : ""} from creation
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">Base Units</div>
-                  <div className="text-xs text-gray-700 break-all">
-                    {parsedAmount ?? "Invalid amount"}
                   </div>
                 </div>
               </div>
