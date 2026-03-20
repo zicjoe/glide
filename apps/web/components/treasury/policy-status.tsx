@@ -1,3 +1,5 @@
+"use client";
+
 import { CheckCircle2, AlertCircle, Info } from "lucide-react";
 import type {
   PayoutDestination,
@@ -64,7 +66,7 @@ export function PolicyStatus({
             <p className={`text-xs ${
               isValid ? "text-green-600" : "text-amber-600"
             }`}>
-              {isValid ? "Allocation is balanced" : "Must equal exactly 100%"}
+              {isValid ? "Enabled bucket allocation is balanced" : "Enabled buckets must total exactly 100%"}
             </p>
           </div>
 
@@ -79,7 +81,7 @@ export function PolicyStatus({
               {activeDestinations} / {destinations.length}
             </div>
             <p className="text-xs text-blue-600">
-              Destinations configured and enabled
+              Indexed destinations currently enabled
             </p>
           </div>
 
@@ -101,12 +103,12 @@ export function PolicyStatus({
             <div className={`text-lg font-semibold mb-1 ${
               isValid ? "text-green-700" : "text-gray-600"
             }`}>
-              {isValid ? "Ready to Save" : "Pending Changes"}
+              {policy ? "Loaded from chain" : "Not yet written"}
             </div>
             <p className={`text-xs ${
               isValid ? "text-green-600" : "text-gray-500"
             }`}>
-              {policy ? "Configuration loaded from chain" : "No policy found yet"}
+              {policy ? "Current policy is indexed and visible" : "Write a treasury policy to activate defaults"}
             </p>
           </div>
         </div>
@@ -130,7 +132,7 @@ export function PolicyStatus({
                 policy ? "text-green-700" : "text-gray-600"
               }`}>
                 {policy
-                  ? "Settlement defaults are present onchain"
+                  ? "Settlement defaults are present and indexed"
                   : "No settlement policy has been written yet"}
               </div>
             </div>
@@ -154,7 +156,7 @@ export function PolicyStatus({
                 buckets.length > 0 ? "text-green-700" : "text-gray-600"
               }`}>
                 {buckets.length > 0
-                  ? "Treasury buckets are configured onchain"
+                  ? "Treasury buckets are configured and indexed"
                   : "No treasury buckets configured yet"}
               </div>
             </div>
@@ -168,7 +170,7 @@ export function PolicyStatus({
               </div>
               <div className="text-xs text-blue-700">
                 {policy
-                  ? `Current threshold is ${policy.yieldThreshold}`
+                  ? `Current indexed threshold is ${policy.yieldThreshold}`
                   : "Threshold will appear after policy is loaded"}
               </div>
             </div>

@@ -1,98 +1,187 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getIndexedInvoiceByReference } from "@/lib/api/indexer";
-import type {
-  Invoice,
-  PayoutDestination,
-  TreasuryPolicy,
-} from "@/lib/contracts/types";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getIndexedInvoiceByReference,
+  type IndexedInvoiceCheckoutResponse,
+} from "@/lib/api/indexer";
 
-type CheckoutPaymentStatus = {
+export type CheckoutInvoice = {
+  invoiceId: number;
+  merchantId: number;
+  reference: string;
+  asset: number;
+  amount: number;
+  description: string;
+  expiryAt: number;
+  destinationId: number | null;
+  paymentDestination: string;
+  status: number;
+  createdAt: number;
+  paidAt: number;
+  settlementId: number | null;
+};
+
+export type CheckoutPaymentStatus = {
+  invoiceId: number;
+  merchantId: number;
   paymentStatus: string;
   observedAmount: number | null;
   observedAsset: number | null;
   observedTxid: string | null;
   observedAt: number | null;
   confirmedAt: number | null;
-  updatedAt: number | null;
+  updatedAt: number;
 };
 
-type CheckoutInvoiceResult = {
-  invoice: Invoice | null;
-  policy: TreasuryPolicy | null;
-  paymentDestination: PayoutDestination | null;
+export type CheckoutRail = {
+  rail: string;
+  label: string;
+  assetLabel: string;
+  amount: number;
+  normalizedAsset: number;
+  normalizedAmount: number;
+  customerStatusLabel: string;
+  cashbackEligible: boolean;
+  cashbackBps: number;
+  cashbackAmount: number;
+  routeType: string;
+  visibleMessage: string;
+  address: string | null;
+  addressLabel: string;
+};
+
+export type CheckoutQuoteSource = {
+  btcUsd: number;
+  usdcUsd: number;
+  usdcxUsd: number;
+  sbtcBtc: number;
+  mode: string;
+};
+
+export type CheckoutData = {
+  settlementAsset: number;
+  settlementAssetLabel: string;
+  settlementAmount: number;
+  quoteSource: CheckoutQuoteSource | null;
+  defaultRail: string | null;
+  rails: CheckoutRail[];
+};
+
+type UseCheckoutInvoiceResult = {
+  invoice: CheckoutInvoice | null;
   paymentStatus: CheckoutPaymentStatus | null;
+  checkout: CheckoutData | null;
+  selectedRail: CheckoutRail | null;
+  selectedRailKey: string | null;
+  setSelectedRailKey: (rail: string) => void;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 };
 
-function mapInvoice(row: any): Invoice {
+function mapInvoice(
+  row: NonNullable<IndexedInvoiceCheckoutResponse["invoice"]>,
+): CheckoutInvoice {
   return {
     invoiceId: Number(row.invoice_id),
     merchantId: Number(row.merchant_id),
     reference: String(row.reference),
-    asset: Number(row.asset) as 0 | 1,
+    asset: Number(row.asset),
     amount: Number(row.amount),
     description: String(row.description),
     expiryAt: Number(row.expiry_at),
-    status: Number(row.status) as 0 | 1 | 2 | 3,
+    destinationId:
+      "destination_id" in row && row.destination_id != null
+        ? Number(row.destination_id)
+        : null,
+    paymentDestination:
+      "payment_destination" in row ? String(row.payment_destination ?? "") : "",
+    status: Number(row.status),
     createdAt: Number(row.created_at),
     paidAt: Number(row.paid_at),
     settlementId: row.settlement_id == null ? null : Number(row.settlement_id),
   };
 }
 
-function mapPolicy(row: any): TreasuryPolicy {
+function mapPaymentStatus(
+  row: NonNullable<IndexedInvoiceCheckoutResponse["paymentStatus"]>,
+): CheckoutPaymentStatus {
   return {
+    invoiceId: Number(row.invoice_id),
     merchantId: Number(row.merchant_id),
-    settlementAsset: Number(row.settlement_asset) as 0 | 1,
-    autoSplit: Boolean(row.auto_split),
-    idleYield: Boolean(row.idle_yield),
-    yieldThreshold: Number(row.yield_threshold),
-    updatedAt: Number(row.updated_at),
-  };
-}
-
-function mapDestination(row: any): PayoutDestination {
-  return {
-    merchantId: Number(row.merchant_id),
-    destinationId: Number(row.destination_id),
-    label: String(row.label),
-    asset: Number(row.asset) as 0 | 1,
-    destination: String(row.destination),
-    destinationType: Number(row.destination_type) as 0 | 1 | 2,
-    enabled: Boolean(row.enabled),
-    createdAt: Number(row.created_at),
-  };
-}
-
-function mapPaymentStatus(row: any): CheckoutPaymentStatus | null {
-  if (!row) return null;
-
-  return {
     paymentStatus: String(row.payment_status),
     observedAmount:
       row.observed_amount == null ? null : Number(row.observed_amount),
     observedAsset:
       row.observed_asset == null ? null : Number(row.observed_asset),
-    observedTxid: row.observed_txid == null ? null : String(row.observed_txid),
+    observedTxid:
+      row.observed_txid == null ? null : String(row.observed_txid),
     observedAt: row.observed_at == null ? null : Number(row.observed_at),
     confirmedAt: row.confirmed_at == null ? null : Number(row.confirmed_at),
-    updatedAt: row.updated_at == null ? null : Number(row.updated_at),
+    updatedAt: Number(row.updated_at),
   };
 }
 
-export function useCheckoutInvoice(reference: string): CheckoutInvoiceResult {
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [policy, setPolicy] = useState<TreasuryPolicy | null>(null);
-  const [paymentDestination, setPaymentDestination] =
-    useState<PayoutDestination | null>(null);
+function mapCheckout(
+  row: NonNullable<IndexedInvoiceCheckoutResponse["checkout"]>,
+): CheckoutData {
+  return {
+    settlementAsset: Number(row.settlementAsset),
+    settlementAssetLabel: String(row.settlementAssetLabel),
+    settlementAmount: Number(row.settlementAmount ?? 0),
+    quoteSource: row.quoteSource
+      ? {
+          btcUsd: Number(row.quoteSource.btcUsd ?? 0),
+          usdcUsd: Number(row.quoteSource.usdcUsd ?? 0),
+          usdcxUsd: Number(row.quoteSource.usdcxUsd ?? 0),
+          sbtcBtc: Number(row.quoteSource.sbtcBtc ?? 0),
+          mode: String(row.quoteSource.mode ?? ""),
+        }
+      : null,
+    defaultRail: row.defaultRail ? String(row.defaultRail) : null,
+    rails: (row.rails ?? []).map((rail) => ({
+      rail: String(rail.rail),
+      label: String(rail.label),
+      assetLabel: String(rail.assetLabel),
+      amount: Number(rail.amount),
+      normalizedAsset: Number(rail.normalizedAsset),
+      normalizedAmount: Number(rail.normalizedAmount),
+      customerStatusLabel: String(rail.customerStatusLabel),
+      cashbackEligible: Boolean(rail.cashbackEligible),
+      cashbackBps: Number(rail.cashbackBps),
+      cashbackAmount: Number(rail.cashbackAmount),
+      routeType: String(rail.routeType),
+      visibleMessage: String(rail.visibleMessage),
+      address: rail.address == null ? null : String(rail.address),
+      addressLabel: String(rail.addressLabel),
+    })),
+  };
+}
+
+export function useCheckoutInvoice(reference: string): UseCheckoutInvoiceResult {
+  const [invoice, setInvoice] = useState<CheckoutInvoice | null>(null);
   const [paymentStatus, setPaymentStatus] =
     useState<CheckoutPaymentStatus | null>(null);
+  const [checkout, setCheckout] = useState<CheckoutData | null>(null);
+  const [selectedRailKey, setSelectedRailKeyState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedRail = useMemo(() => {
+    if (!checkout) return null;
+    if (!selectedRailKey) return checkout.rails[0] ?? null;
+
+    return (
+      checkout.rails.find((rail) => rail.rail === selectedRailKey) ??
+      checkout.rails[0] ??
+      null
+    );
+  }, [checkout, selectedRailKey]);
+
+  function setSelectedRailKey(rail: string) {
+    setSelectedRailKeyState(rail);
+  }
 
   async function load() {
     try {
@@ -101,20 +190,37 @@ export function useCheckoutInvoice(reference: string): CheckoutInvoiceResult {
 
       const result = await getIndexedInvoiceByReference(reference);
 
-      setInvoice(result.invoice ? mapInvoice(result.invoice) : null);
-      setPolicy(result.policy ? mapPolicy(result.policy) : null);
-      setPaymentDestination(
-        result.paymentDestination
-          ? mapDestination(result.paymentDestination)
-          : null,
+      if (!result.invoice) {
+        setInvoice(null);
+        setPaymentStatus(null);
+        setCheckout(null);
+        setSelectedRailKeyState(null);
+        setError("Invoice not found");
+        return;
+      }
+
+      const mappedInvoice = mapInvoice(result.invoice);
+      const mappedCheckout = result.checkout ? mapCheckout(result.checkout) : null;
+
+      setInvoice(mappedInvoice);
+      setPaymentStatus(
+        result.paymentStatus ? mapPaymentStatus(result.paymentStatus) : null,
       );
-      setPaymentStatus(mapPaymentStatus(result.paymentStatus));
+      setCheckout(mappedCheckout);
+
+      setSelectedRailKeyState((current) => {
+        if (current && mappedCheckout?.rails.some((rail) => rail.rail === current)) {
+          return current;
+        }
+
+        return mappedCheckout?.defaultRail ?? mappedCheckout?.rails[0]?.rail ?? null;
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load invoice");
       setInvoice(null);
-      setPolicy(null);
-      setPaymentDestination(null);
       setPaymentStatus(null);
+      setCheckout(null);
+      setSelectedRailKeyState(null);
+      setError(err instanceof Error ? err.message : "Failed to load invoice");
     } finally {
       setLoading(false);
     }
@@ -126,9 +232,11 @@ export function useCheckoutInvoice(reference: string): CheckoutInvoiceResult {
 
   return {
     invoice,
-    policy,
-    paymentDestination,
     paymentStatus,
+    checkout,
+    selectedRail,
+    selectedRailKey,
+    setSelectedRailKey,
     loading,
     error,
     refetch: load,

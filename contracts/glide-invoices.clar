@@ -11,6 +11,7 @@
 (define-constant ERR_SETTLEMENT_ALREADY_LINKED (err u308))
 (define-constant ERR_NOT_SETTLEMENT_EXECUTOR (err u309))
 (define-constant ERR_NOT_INVOICE_OWNER (err u310))
+(define-constant ERR_INVALID_PAYMENT_DESTINATION (err u311))
 
 (define-constant ASSET_SBTC u0)
 (define-constant ASSET_USDCX u1)
@@ -31,6 +32,8 @@
     amount: uint,
     description: (string-utf8 120),
     expiry-at: uint,
+    destination-id: (optional uint),
+    payment-destination: principal,
     status: uint,
     created-at: uint,
     paid-at: uint,
@@ -71,6 +74,10 @@
   )
 )
 
+(define-private (assert-valid-payment-destination (payment-destination principal))
+  (asserts! (is-standard payment-destination) ERR_INVALID_PAYMENT_DESTINATION)
+)
+
 (define-read-only (get-invoice (invoice-id uint))
   (ok (map-get? invoices { invoice-id: invoice-id }))
 )
@@ -97,9 +104,12 @@
     (amount uint)
     (description (string-utf8 120))
     (expiry-at uint)
+    (destination-id (optional uint))
+    (payment-destination principal)
   )
   (begin
     (try! (assert-merchant-owner merchant-id))
+    (try! (assert-valid-payment-destination payment-destination))
     (asserts! (> expiry-at stacks-block-height) ERR_INVALID_EXPIRY)
     (let
       (
@@ -114,6 +124,8 @@
           amount: amount,
           description: description,
           expiry-at: expiry-at,
+          destination-id: destination-id,
+          payment-destination: payment-destination,
           status: INVOICE_OPEN,
           created-at: stacks-block-height,
           paid-at: u0,
@@ -143,6 +155,8 @@
               amount: (get amount invoice),
               description: (get description invoice),
               expiry-at: (get expiry-at invoice),
+              destination-id: (get destination-id invoice),
+              payment-destination: (get payment-destination invoice),
               status: INVOICE_CANCELLED,
               created-at: (get created-at invoice),
               paid-at: (get paid-at invoice),
@@ -171,6 +185,8 @@
             amount: (get amount invoice),
             description: (get description invoice),
             expiry-at: (get expiry-at invoice),
+            destination-id: (get destination-id invoice),
+            payment-destination: (get payment-destination invoice),
             status: INVOICE_EXPIRED,
             created-at: (get created-at invoice),
             paid-at: (get paid-at invoice),
@@ -199,6 +215,8 @@
               amount: (get amount invoice),
               description: (get description invoice),
               expiry-at: (get expiry-at invoice),
+              destination-id: (get destination-id invoice),
+              payment-destination: (get payment-destination invoice),
               status: INVOICE_PAID,
               created-at: (get created-at invoice),
               paid-at: stacks-block-height,
@@ -228,6 +246,8 @@
               amount: (get amount invoice),
               description: (get description invoice),
               expiry-at: (get expiry-at invoice),
+              destination-id: (get destination-id invoice),
+              payment-destination: (get payment-destination invoice),
               status: (get status invoice),
               created-at: (get created-at invoice),
               paid-at: (get paid-at invoice),

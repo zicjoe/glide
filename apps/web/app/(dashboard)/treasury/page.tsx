@@ -102,7 +102,7 @@ export default function TreasuryPage() {
           </div>
         ) : (
           <>
-            <SettlementDefaults policy={policy} merchant={merchant} />
+            <SettlementDefaults policy={policy}/>
             <PayoutDestinations destinations={destinations} />
             <TreasuryBuckets buckets={buckets} destinations={destinations} />
             <PolicyStatus

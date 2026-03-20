@@ -141,27 +141,32 @@ export async function writeSetBucketEnabled(args: {
 }
 
 export async function writeCreateInvoice(args: {
-  merchantId: number;
-  reference: string;
-  asset: 0 | 1;
-  amount: number;
-  description: string;
-  expiryAt: number;
-}) {
-  return callPublic({
-    contractAddress: contractAddress(),
-    contractName: CONTRACTS.glideInvoices,
-    functionName: "create-invoice",
-    functionArgs: [
-      cv.uint(args.merchantId),
-      cv.ascii(args.reference),
-      cv.uint(args.asset),
-      cv.uint(args.amount),
-      cv.utf8(args.description),
-      cv.uint(args.expiryAt),
-    ],
-  });
-}
+    merchantId: number;
+    reference: string;
+    asset: 0 | 1;
+    amount: number;
+    description: string;
+    expiryAt: number;
+    destinationId?: number | null;
+    paymentDestination: string;
+  }) {
+    return callPublic({
+      contractAddress: contractAddress(),
+      contractName: CONTRACTS.glideInvoices,
+      functionName: "create-invoice",
+      functionArgs: [
+        cv.uint(args.merchantId),
+        cv.ascii(args.reference),
+        cv.uint(args.asset),
+        cv.uint(args.amount),
+        cv.utf8(args.description),
+        cv.uint(args.expiryAt),
+        args.destinationId == null ? cv.none() : cv.some(cv.uint(args.destinationId)),
+        cv.principal(args.paymentDestination),
+      ],
+    });
+  }
+  
 
 export async function writeCancelInvoice(args: {
   merchantId: number;
@@ -355,3 +360,4 @@ export async function writeWithdrawPosition(args: {
     functionArgs: [cv.uint(args.positionId)],
   });
 }
+

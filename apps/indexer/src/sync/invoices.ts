@@ -1,8 +1,12 @@
-import { cvToHex, uintCV } from "@stacks/transactions";
+import {
+  ClarityType,
+  cvToHex,
+  hexToCV,
+  uintCV,
+} from "@stacks/transactions";
 import { query } from "../db.js";
 import { contracts } from "../config.js";
 import { callReadOnly } from "./common.js";
-import { decodeReadOnlyResult } from "./decode.js";
 
 function nowTs() {
   return Math.floor(Date.now() / 1000);
@@ -16,43 +20,100 @@ type DecodedInvoice = {
   amount: number;
   description: string;
   expiryAt: number;
+  destinationId: number | null;
+  paymentDestination: string;
   status: number;
   createdAt: number;
   paidAt: number;
   settlementId: number | null;
 };
 
+function cvBigIntToNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  }
+  return fallback;
+}
+
+function cvString(value: any): string {
+  if (!value) return "";
+  if (typeof value.data === "string") return value.data;
+  if (typeof value.value === "string") return value.value;
+  return "";
+}
+
+function cvPrincipal(value: any): string {
+  if (!value) return "";
+  if (typeof value.value === "string") return value.value;
+  if (typeof value.address === "string") return value.address;
+  return "";
+}
+
 function decodeInvoiceResult(
   invoiceId: number,
-  result: string,
+  resultHex: string,
 ): DecodedInvoice | null {
-  const decoded = decodeReadOnlyResult(result);
-  if (!decoded || typeof decoded !== "object") return null;
+  const clarityValue = hexToCV(resultHex) as any;
 
-  const invoice = decoded as Record<string, unknown>;
-  const merchantId = Number(invoice["merchant-id"] ?? 0);
-
-  if (!merchantId) {
+  if (clarityValue.type !== ClarityType.ResponseOk) {
     return null;
   }
 
-  const settlementRaw = invoice["settlement-id"];
+  const optionalValue = clarityValue.value as any;
+
+  if (!optionalValue || optionalValue.type !== ClarityType.OptionalSome) {
+    return null;
+  }
+
+  const tupleValue = optionalValue.value as any;
+
+  if (!tupleValue || tupleValue.type !== ClarityType.Tuple) {
+    return null;
+  }
+
+  const data = tupleValue.value as Record<string, any>;
+
+  const merchantId = cvBigIntToNumber(data["merchant-id"]?.value);
+  const reference = cvString(data["reference"]);
+  const asset = cvBigIntToNumber(data["asset"]?.value);
+  const amount = cvBigIntToNumber(data["amount"]?.value);
+  const description = cvString(data["description"]);
+  const expiryAt = cvBigIntToNumber(data["expiry-at"]?.value);
+
+  let destinationId: number | null = null;
+  const destinationCv = data["destination-id"];
+  if (destinationCv?.type === ClarityType.OptionalSome) {
+    destinationId = cvBigIntToNumber(destinationCv.value?.value, 0);
+  }
+
+  const paymentDestination = cvPrincipal(data["payment-destination"]);
+  const status = cvBigIntToNumber(data["status"]?.value);
+  const createdAt = cvBigIntToNumber(data["created-at"]?.value);
+  const paidAt = cvBigIntToNumber(data["paid-at"]?.value);
+
+  let settlementId: number | null = null;
+  const settlementCv = data["settlement-id"];
+  if (settlementCv?.type === ClarityType.OptionalSome) {
+    settlementId = cvBigIntToNumber(settlementCv.value?.value, 0);
+  }
 
   return {
     invoiceId,
     merchantId,
-    reference: String(invoice["reference"] ?? ""),
-    asset: Number(invoice["asset"] ?? 0),
-    amount: Number(invoice["amount"] ?? 0),
-    description: String(invoice["description"] ?? ""),
-    expiryAt: Number(invoice["expiry-at"] ?? 0),
-    status: Number(invoice["status"] ?? 0),
-    createdAt: Number(invoice["created-at"] ?? 0),
-    paidAt: Number(invoice["paid-at"] ?? 0),
-    settlementId:
-      settlementRaw == null || settlementRaw === ""
-        ? null
-        : Number(settlementRaw),
+    reference,
+    asset,
+    amount,
+    description,
+    expiryAt,
+    destinationId,
+    paymentDestination,
+    status,
+    createdAt,
+    paidAt,
+    settlementId,
   };
 }
 
@@ -67,12 +128,14 @@ async function upsertInvoice(decoded: DecodedInvoice) {
         amount,
         description,
         expiry_at,
+        destination_id,
+        payment_destination,
         status,
         created_at,
         paid_at,
         settlement_id
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       ON CONFLICT (invoice_id) DO UPDATE SET
         merchant_id = EXCLUDED.merchant_id,
         reference = EXCLUDED.reference,
@@ -80,6 +143,8 @@ async function upsertInvoice(decoded: DecodedInvoice) {
         amount = EXCLUDED.amount,
         description = EXCLUDED.description,
         expiry_at = EXCLUDED.expiry_at,
+        destination_id = EXCLUDED.destination_id,
+        payment_destination = EXCLUDED.payment_destination,
         status = EXCLUDED.status,
         created_at = EXCLUDED.created_at,
         paid_at = EXCLUDED.paid_at,
@@ -93,6 +158,8 @@ async function upsertInvoice(decoded: DecodedInvoice) {
       decoded.amount,
       decoded.description,
       decoded.expiryAt,
+      decoded.destinationId,
+      decoded.paymentDestination,
       decoded.status,
       decoded.createdAt,
       decoded.paidAt,
@@ -106,7 +173,7 @@ export async function syncInvoices(merchantId: number) {
 
   let syncedCount = 0;
 
-  for (let invoiceId = 1; invoiceId <= 100; invoiceId++) {
+  for (let invoiceId = 1; invoiceId <= 20; invoiceId++) {
     try {
       const response = await callReadOnly(
         contractAddress,
@@ -131,7 +198,8 @@ export async function syncInvoices(merchantId: number) {
 
       await upsertInvoice(decoded);
       syncedCount += 1;
-    } catch (_error) {
+    } catch (error) {
+      console.error(`invoice sync failed for invoice ${invoiceId}`, error);
       continue;
     }
   }

@@ -1,37 +1,58 @@
 import { principalCV, cvToHex, uintCV } from "@stacks/transactions";
 import { query } from "../db.js";
-import { config, contracts } from "../config.js";
+import { contracts } from "../config.js";
 import { callReadOnly } from "./common.js";
+import { decodeReadOnlyResult } from "./decode.js";
 
 function nowTs() {
   return Math.floor(Date.now() / 1000);
 }
 
 function parseMerchantIdResult(result: string): number | null {
-  if (result === "0x0709") return null;
-  return 1;
+  if (!result || result === "0x0709") return null;
+
+  const decoded = decodeReadOnlyResult(result);
+  if (!decoded || typeof decoded !== "object") return null;
+
+  const row = decoded as Record<string, unknown>;
+  const merchantId = row["merchant-id"];
+
+  if (typeof merchantId === "number") return merchantId;
+  if (typeof merchantId === "string") {
+    const parsed = Number(merchantId);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  return null;
 }
 
-function parseMerchantResult(_result: string) {
+function parseMerchantResult(result: string, merchantId: number) {
+  if (!result || result === "0x0709") return null;
+
+  const decoded = decodeReadOnlyResult(result);
+  if (!decoded || typeof decoded !== "object") return null;
+
+  const row = decoded as Record<string, unknown>;
+
   return {
-    merchantId: 1,
-    owner: config.merchantOwner,
-    active: true,
-    createdAt: nowTs(),
+    merchantId,
+    owner: String(row["owner"] ?? ""),
+    active: Boolean(row["active"]),
+    createdAt: Number(row["created-at"] ?? 0),
   };
 }
 
-export async function syncMerchant() {
+export async function syncMerchantByOwner(owner: string) {
   const [contractAddress, contractName] = contracts.glideCore.split(".");
 
   const merchantIdRes = await callReadOnly(
     contractAddress,
     contractName,
     "get-merchant-id-by-owner",
-    [cvToHex(principalCV(config.merchantOwner))],
+    [cvToHex(principalCV(owner))],
   );
 
-  const merchantId = parseMerchantIdResult(merchantIdRes.result);
+  const merchantId = parseMerchantIdResult(merchantIdRes?.result);
   if (!merchantId) return null;
 
   const merchantRes = await callReadOnly(
@@ -41,22 +62,30 @@ export async function syncMerchant() {
     [cvToHex(uintCV(merchantId))],
   );
 
-  const merchant = parseMerchantResult(merchantRes.result);
+  const merchant = parseMerchantResult(merchantRes?.result, merchantId);
+  if (!merchant || !merchant.owner) return null;
 
   await query(
     `
-      INSERT INTO merchants (merchant_id, owner, active, created_at, updated_at)
+      INSERT INTO merchants (
+        merchant_id,
+        owner,
+        active,
+        created_at,
+        updated_at
+      )
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (merchant_id) DO UPDATE SET
         owner = EXCLUDED.owner,
         active = EXCLUDED.active,
+        created_at = EXCLUDED.created_at,
         updated_at = EXCLUDED.updated_at
     `,
     [
       merchant.merchantId,
       merchant.owner,
       merchant.active,
-      merchant.createdAt,
+      merchant.createdAt || nowTs(),
       nowTs(),
     ],
   );
@@ -83,5 +112,5 @@ export async function syncMerchant() {
     ],
   );
 
-  return merchantId;
+  return merchant.merchantId;
 }

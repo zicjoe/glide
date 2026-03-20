@@ -4,14 +4,19 @@ import { useEffect, useState } from "react";
 import { getIndexedInvoices } from "@/lib/api/indexer";
 import type { Invoice } from "@/lib/contracts/types";
 
+export type IndexedInvoice = Invoice & {
+  destinationId: number | null;
+  paymentDestination: string;
+};
+
 type UseIndexedInvoicesResult = {
-  invoices: Invoice[];
+  invoices: IndexedInvoice[];
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 };
 
-function mapInvoice(row: any): Invoice {
+function mapInvoice(row: any): IndexedInvoice {
   return {
     invoiceId: Number(row.invoice_id),
     merchantId: Number(row.merchant_id),
@@ -20,6 +25,9 @@ function mapInvoice(row: any): Invoice {
     amount: Number(row.amount),
     description: String(row.description),
     expiryAt: Number(row.expiry_at),
+    destinationId:
+      row.destination_id == null ? null : Number(row.destination_id),
+    paymentDestination: String(row.payment_destination ?? ""),
     status: Number(row.status) as 0 | 1 | 2 | 3,
     createdAt: Number(row.created_at),
     paidAt: Number(row.paid_at),
@@ -31,7 +39,7 @@ function mapInvoice(row: any): Invoice {
 export function useIndexedInvoices(
   merchantId: number | null,
 ): UseIndexedInvoicesResult {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<IndexedInvoice[]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(merchantId));
   const [error, setError] = useState<string | null>(null);
 

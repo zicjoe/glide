@@ -1,8 +1,8 @@
 export const CONTRACTS = {
     glideCore: "glide-core",
     glideTreasury: "glide-treasury",
-    glideInvoices: "glide-invoices",
-    glideSettlements: "glide-settlements",
+    glideInvoices: "glide-invoices-v2",
+    glideSettlements: "glide-settlements-v2",
     glideVault: "glide-vault",
     glideStrategyRegistry: "glide-strategy-registry",
     glideYield: "glide-yield",

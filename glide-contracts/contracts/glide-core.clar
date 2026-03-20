@@ -3,6 +3,8 @@
 (define-constant ERR_UNAUTHORIZED (err u100))
 (define-constant ERR_ALREADY_REGISTERED (err u101))
 (define-constant ERR_MERCHANT_NOT_FOUND (err u102))
+(define-constant ERR_EXECUTOR_ALREADY_SET (err u103))
+(define-constant ERR_EXECUTOR_NOT_FOUND (err u104))
 
 (define-data-var contract-owner principal tx-sender)
 (define-data-var merchant-nonce uint u0)
@@ -45,23 +47,23 @@
 
 (define-read-only (is-merchant-owner (merchant-id uint) (who principal))
   (match (map-get? merchants { merchant-id: merchant-id })
-    merchant
-      (ok (is-eq who (get owner merchant)))
-      (ok false))
+    merchant (ok (is-eq who (get owner merchant)))
+    (ok false)
+  )
 )
 
 (define-read-only (is-settlement-executor (who principal))
   (match (map-get? settlement-executors { executor: who })
-    executor-row
-      (ok (get enabled executor-row))
-      (ok false))
+    executor-row (ok (get enabled executor-row))
+    (ok false)
+  )
 )
 
 (define-read-only (is-yield-executor (who principal))
   (match (map-get? yield-executors { executor: who })
-    executor-row
-      (ok (get enabled executor-row))
-      (ok false))
+    executor-row (ok (get enabled executor-row))
+    (ok false)
+  )
 )
 
 (define-public (register-merchant)
@@ -102,7 +104,8 @@
           )
           (ok true)
         )
-      ERR_MERCHANT_NOT_FOUND)
+      ERR_MERCHANT_NOT_FOUND
+    )
   )
 )
 

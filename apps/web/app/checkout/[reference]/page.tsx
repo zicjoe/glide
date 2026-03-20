@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Copy,
   Clock,
@@ -12,13 +13,12 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useCheckoutInvoice } from "@/hooks/use-checkout-invoice";
 import {
-  ASSET,
   INVOICE_STATUS,
   SETTLEMENT_STATUS,
   invoiceStatusLabel,
-  assetLabel,
+  formatAssetAmount,
+  formatRailAmount,
 } from "@/lib/contracts/constants";
-import { useMerchantSession } from "@/hooks/use-merchant-session";
 import { useIndexedSettlements } from "@/hooks/use-indexed-settlements";
 
 function expiryLabel(expiryAt: number) {
@@ -129,25 +129,33 @@ function paymentStatusDescription(status: string | null) {
   }
 }
 
+function railTone(isSelected: boolean) {
+  return isSelected
+    ? "border-blue-600 bg-white shadow-sm"
+    : "border-blue-200 bg-blue-50 hover:bg-white";
+}
+
 export default function CheckoutInvoicePage() {
   const params = useParams<{ reference: string }>();
   const reference = params.reference;
 
   const {
     invoice,
-    paymentDestination,
     paymentStatus,
+    checkout,
+    selectedRail,
+    selectedRailKey,
+    setSelectedRailKey,
     loading,
     error,
     refetch,
   } = useCheckoutInvoice(reference);
 
-  const { merchantId } = useMerchantSession();
   const {
     settlements,
     loading: settlementsLoading,
     refetch: refetchSettlements,
-  } = useIndexedSettlements(merchantId);
+  } = useIndexedSettlements(invoice?.merchantId ?? null);
 
   async function refreshStatus() {
     await refetch();
@@ -159,6 +167,14 @@ export default function CheckoutInvoicePage() {
     alert(`${label} copied`);
   }
 
+  const linkedSettlement = useMemo(() => {
+    if (!invoice) return null;
+
+    return invoice.settlementId != null
+      ? settlements.find((item) => item.settlementId === invoice.settlementId) ?? null
+      : settlements.find((item) => item.invoiceId === invoice.invoiceId) ?? null;
+  }, [invoice, settlements]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 px-6 py-12">
@@ -169,7 +185,7 @@ export default function CheckoutInvoicePage() {
     );
   }
 
-  if (error || !invoice) {
+  if (error || !invoice || !checkout) {
     return (
       <div className="min-h-screen bg-gray-50 px-6 py-12">
         <div className="mx-auto max-w-3xl rounded-2xl border border-red-200 bg-white p-8 shadow-sm">
@@ -185,13 +201,17 @@ export default function CheckoutInvoicePage() {
   }
 
   const isOpen = invoice.status === INVOICE_STATUS.OPEN;
-  const asset = assetLabel(invoice.asset);
+  const paymentAddress = selectedRail?.address ?? null;
+  const paymentAddressLabel = selectedRail?.addressLabel ?? "Payment address";
 
-  const linkedSettlement =
-    invoice.settlementId != null
-      ? settlements.find((item) => item.settlementId === invoice.settlementId) ??
-        null
-      : settlements.find((item) => item.invoiceId === invoice.invoiceId) ?? null;
+  const displayAmount = selectedRail
+    ? formatRailAmount(Number(selectedRail.amount), selectedRail.assetLabel)
+    : "0";
+
+  const settlementDisplayAmount = formatAssetAmount(
+    Number(checkout.settlementAmount ?? 0),
+    Number(checkout.settlementAsset),
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 px-6 py-12">
@@ -212,11 +232,14 @@ export default function CheckoutInvoicePage() {
             </div>
 
             <div className="text-right">
-              <div className="text-sm text-gray-500 mb-2">Amount Due</div>
+              <div className="text-sm text-gray-500 mb-2">Merchant settles in</div>
               <div className="text-4xl font-semibold text-gray-900">
-                {invoice.amount} {asset}
+                {checkout.settlementAssetLabel}
               </div>
               <div className="mt-2 text-sm text-gray-500">
+                {settlementDisplayAmount} {checkout.settlementAssetLabel}
+              </div>
+              <div className="mt-1 text-sm text-gray-500">
                 {isOpen ? expiryLabel(invoice.expiryAt) : "Invoice closed"}
               </div>
             </div>
@@ -229,59 +252,93 @@ export default function CheckoutInvoicePage() {
               <div className="flex items-center gap-2 mb-3">
                 <Wallet className="h-5 w-5 text-blue-700" />
                 <div className="text-base font-semibold text-blue-900">
-                  Send payment
+                  Choose payment method
                 </div>
+              </div>
+
+              <div className="mb-4 text-sm text-blue-900">
+                All payment options are quoted at the same value.
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {checkout.rails.map((rail) => {
+                  const isSelected = selectedRailKey === rail.rail;
+                  const railAmount = formatRailAmount(
+                    Number(rail.amount),
+                    rail.assetLabel,
+                  );
+
+                  return (
+                    <button
+                      key={rail.rail}
+                      type="button"
+                      onClick={() => setSelectedRailKey(rail.rail)}
+                      className={`rounded-xl border p-4 text-left transition-all ${railTone(isSelected)}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {rail.label}
+                        </div>
+                        <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-gray-600">
+                          {rail.customerStatusLabel}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 text-lg font-semibold text-gray-900">
+                        {railAmount} {rail.assetLabel}
+                      </div>
+
+                      <div className="mt-2 text-xs text-gray-500">
+                        {rail.addressLabel}: {rail.address ?? "Not available yet"}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="space-y-5">
                 <div>
-                  <div className="text-xs text-blue-700 mb-1">Asset</div>
-                  <div className="text-lg font-semibold text-blue-950">{asset}</div>
+                  <div className="text-xs text-blue-700 mb-1">Selected asset</div>
+                  <div className="text-lg font-semibold text-blue-950">
+                    {selectedRail?.assetLabel ?? "Not selected"}
+                  </div>
                 </div>
 
                 <div>
                   <div className="text-xs text-blue-700 mb-1">Exact amount</div>
                   <div className="rounded-xl border border-blue-200 bg-white p-4">
                     <div className="text-2xl font-semibold text-gray-900">
-                      {invoice.amount} {asset}
+                      {displayAmount} {selectedRail?.assetLabel ?? ""}
                     </div>
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() =>
-                          void copyValue(`${invoice.amount}`, "Amount")
-                        }
-                      >
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy Amount
-                      </Button>
-                    </div>
+                    {selectedRail ? (
+                      <div className="mt-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void copyValue(`${displayAmount}`, "Amount")}
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy Amount
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
                 <div>
                   <div className="text-xs text-blue-700 mb-1">
-                    Merchant payment address
+                    {paymentAddressLabel}
                   </div>
-                  {paymentDestination ? (
+                  {paymentAddress ? (
                     <div className="rounded-xl border border-blue-200 bg-white p-4">
-                      <div className="text-xs text-gray-500 mb-1">
-                        {paymentDestination.label}
-                      </div>
                       <div className="break-all text-sm font-mono text-gray-900">
-                        {paymentDestination.destination}
+                        {paymentAddress}
                       </div>
                       <div className="mt-3">
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() =>
-                            void copyValue(
-                              paymentDestination.destination,
-                              "Address",
-                            )
-                          }
+                          onClick={() => void copyValue(paymentAddress, "Address")}
                         >
                           <Copy className="mr-2 h-4 w-4" />
                           Copy Address
@@ -289,8 +346,8 @@ export default function CheckoutInvoicePage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-sm text-red-600">
-                      No payment destination configured for this asset yet.
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                      This payment rail is not wired to a receiving address yet.
                     </div>
                   )}
                 </div>
@@ -300,10 +357,8 @@ export default function CheckoutInvoicePage() {
                     Payment instructions
                   </div>
                   <div className="text-sm text-gray-700 leading-relaxed">
-                    Send the exact amount shown above to the merchant payment
-                    address using <span className="font-medium">{asset}</span>.
-                    After payment is detected and verified, Glide will move this
-                    invoice into settlement flow.
+                    {selectedRail?.visibleMessage ??
+                      "Choose a payment rail to continue."}
                   </div>
                 </div>
               </div>
@@ -321,9 +376,20 @@ export default function CheckoutInvoicePage() {
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-2">
-                  Payment Asset
+                  Settlement currency
                 </div>
-                <div className="text-sm font-semibold text-gray-900">{asset}</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {settlementDisplayAmount} {checkout.settlementAssetLabel}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-sm font-medium text-gray-500 mb-2">
+                  Quote source
+                </div>
+                <div className="text-sm text-gray-700">
+                  Static market quote
+                </div>
               </div>
             </div>
           </div>
@@ -340,6 +406,13 @@ export default function CheckoutInvoicePage() {
               <div className="text-xs text-gray-500 mb-1">Invoice ID</div>
               <div className="text-sm font-semibold text-gray-900">
                 {invoice.invoiceId}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Selected rail</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {selectedRail?.label ?? "Not selected"}
               </div>
             </div>
 
@@ -400,9 +473,9 @@ export default function CheckoutInvoicePage() {
             </div>
 
             <div>
-              <div className="text-xs text-gray-500 mb-1">Asset</div>
+              <div className="text-xs text-gray-500 mb-1">Settle to</div>
               <div className="text-sm text-gray-700">
-                {invoice.asset === ASSET.SBTC ? "sBTC" : "USDCx"}
+                {settlementDisplayAmount} {checkout.settlementAssetLabel}
               </div>
             </div>
 

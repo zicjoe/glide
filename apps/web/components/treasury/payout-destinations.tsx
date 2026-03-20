@@ -1,3 +1,5 @@
+"use client";
+
 import { MapPin, Plus, MoreVertical, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,10 @@ function destinationTypeLabel(type: number): string {
   }
 }
 
+async function copyValue(value: string) {
+  await navigator.clipboard.writeText(value);
+}
+
 export function PayoutDestinations({
   destinations,
 }: PayoutDestinationsProps) {
@@ -39,7 +45,8 @@ export function PayoutDestinations({
           </div>
           <Button
             variant="outline"
-            className="h-9 px-4 text-sm border-gray-300 text-gray-700 hover:bg-white hover:border-gray-400 shadow-sm font-medium"
+            disabled
+            className="h-9 px-4 text-sm border-gray-300 text-gray-500 bg-white shadow-sm font-medium"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Destination
@@ -83,10 +90,14 @@ export function PayoutDestinations({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <code className="text-xs text-gray-600 font-mono">
+                      <code className="text-xs text-gray-600 font-mono max-w-[240px] truncate inline-block">
                         {destination.destination}
                       </code>
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => void copyValue(destination.destination)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
                         <Copy className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -97,10 +108,14 @@ export function PayoutDestinations({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <Switch checked={destination.enabled} />
+                    <Switch checked={destination.enabled} disabled />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button
+                      type="button"
+                      disabled
+                      className="text-gray-300 cursor-default"
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </td>

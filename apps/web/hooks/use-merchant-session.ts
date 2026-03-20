@@ -1,16 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useWallet } from "@/hooks/use-wallet";
-import { getIndexedMerchant } from "@/lib/api/indexer";
-import { writeRegisterMerchant } from "@/lib/contracts/writers";
-import type { Merchant } from "@/lib/contracts/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  connectWallet,
+  disconnectWallet,
+  getAllWalletAddresses,
+  getBtcAddress,
+  getStacksAddress,
+  isUserSignedIn,
+} from "@/lib/stacks/auth";
 
-type MerchantSessionResult = {
+import { writeRegisterMerchant } from "@/lib/contracts/writers";
+import { getIndexedMerchant, saveMerchantRails } from "@/lib/api/indexer";
+
+type MerchantRow = {
+  merchant_id: number;
+  owner: string;
+  active: boolean;
+  created_at: number | string;
+  updated_at?: number | string;
+};
+
+type MerchantRails = {
+  stacksAddress: string | null;
+  btcAddress: string | null;
+  allAddresses: Array<{
+    symbol?: string;
+    address?: string;
+    publicKey?: string;
+  }>;
+};
+
+type UseMerchantSessionResult = {
   connected: boolean;
   address: string | null;
-  merchant: Merchant | null;
+  merchant: MerchantRow | null;
   merchantId: number | null;
+  rails: MerchantRails;
   loading: boolean;
   connecting: boolean;
   creatingMerchant: boolean;
@@ -18,92 +44,196 @@ type MerchantSessionResult = {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   createMerchant: () => Promise<void>;
-  refetch: () => Promise<void>;
+  refreshMerchant: () => Promise<void>;
 };
 
-function mapMerchant(row: any): Merchant {
+function normalizeMerchant(row: any): MerchantRow | null {
+  if (!row) return null;
+
   return {
-    merchantId: Number(row.merchant_id),
+    merchant_id: Number(row.merchant_id),
     owner: String(row.owner),
     active: Boolean(row.active),
-    createdAt: Number(row.created_at),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   };
 }
 
-export function useMerchantSession(): MerchantSessionResult {
-  const wallet = useWallet();
-  const [merchant, setMerchant] = useState<Merchant | null>(null);
-  const [merchantId, setMerchantId] = useState<number | null>(null);
-  const [creatingMerchant, setCreatingMerchant] = useState(false);
+export function useMerchantSession(): UseMerchantSessionResult {
+  const [connected, setConnected] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
+  const [btcAddress, setBtcAddress] = useState<string | null>(null);
+  const [allAddresses, setAllAddresses] = useState<
+    Array<{ symbol?: string; address?: string; publicKey?: string }>
+  >([]);
+  const [merchant, setMerchant] = useState<MerchantRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [creatingMerchant, setCreatingMerchant] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadMerchant() {
-    if (!wallet.address) {
+  const merchantId = useMemo(
+    () => (merchant ? Number(merchant.merchant_id) : null),
+    [merchant],
+  );
+
+  const rails = useMemo(
+    () => ({
+      stacksAddress: address,
+      btcAddress,
+      allAddresses,
+    }),
+    [address, btcAddress, allAddresses],
+  );
+
+  const refreshMerchant = useCallback(async () => {
+    const currentAddress = getStacksAddress();
+    const currentBtcAddress = getBtcAddress();
+    const currentAllAddresses = getAllWalletAddresses();
+
+    setBtcAddress(currentBtcAddress);
+    setAllAddresses(currentAllAddresses);
+
+    if (!currentAddress) {
       setMerchant(null);
-      setMerchantId(null);
-      setLoading(false);
-      setError(null);
+      setAddress(null);
+      setConnected(false);
       return;
     }
 
     try {
-      setLoading(true);
+      setError(null);
+      const result = await getIndexedMerchant(currentAddress);
+      setMerchant(normalizeMerchant(result.merchant));
+      setAddress(currentAddress);
+      setConnected(true);
+    } catch (err) {
+      setMerchant(null);
+      setAddress(currentAddress);
+      setConnected(true);
+      setError(err instanceof Error ? err.message : "Failed to load merchant");
+    }
+  }, []);
+
+  const connect = useCallback(async () => {
+    try {
+      setConnecting(true);
       setError(null);
 
-      const result = await getIndexedMerchant(wallet.address);
+      const result = await connectWallet();
 
-      if (!result.merchant) {
-        setMerchant(null);
-        setMerchantId(null);
-        return;
+      const currentAddress = result?.stacksAddress || getStacksAddress();
+      const currentBtcAddress = result?.btcAddress || getBtcAddress();
+      const currentAllAddresses = Array.isArray(result?.addresses)
+        ? result.addresses
+        : getAllWalletAddresses();
+
+      setAddress(currentAddress);
+      setBtcAddress(currentBtcAddress);
+      setAllAddresses(currentAllAddresses);
+      setConnected(Boolean(currentAddress));
+
+
+      if (currentAddress) {
+        await saveMerchantRails({
+          owner: currentAddress,
+          stacksAddress: currentAddress,
+          btcAddress: currentBtcAddress ?? null,
+          usdcxAddress: currentAddress,
+          usdcAddress: null,
+        });
       }
+      
 
-      const mapped = mapMerchant(result.merchant);
-      setMerchant(mapped);
-      setMerchantId(mapped.merchantId);
+      await refreshMerchant();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load merchant session");
-      setMerchant(null);
-      setMerchantId(null);
+      setError(err instanceof Error ? err.message : "Failed to connect wallet");
     } finally {
-      setLoading(false);
+      setConnecting(false);
     }
-  }
+  }, [refreshMerchant]);
 
-  async function createMerchant() {
+  const disconnect = useCallback(async () => {
+    try {
+      await disconnectWallet();
+    } finally {
+      setConnected(false);
+      setAddress(null);
+      setBtcAddress(null);
+      setAllAddresses([]);
+      setMerchant(null);
+      setError(null);
+    }
+  }, []);
+
+  const createMerchant = useCallback(async () => {
     try {
       setCreatingMerchant(true);
       setError(null);
 
       await writeRegisterMerchant();
 
-      await new Promise((resolve) => setTimeout(resolve, 4000));
-      await loadMerchant();
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await refreshMerchant();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create merchant");
+      setError(
+        err instanceof Error ? err.message : "Failed to create merchant account",
+      );
     } finally {
       setCreatingMerchant(false);
     }
-  }
+  }, [refreshMerchant]);
 
   useEffect(() => {
-    if (wallet.loading) return;
-    void loadMerchant();
-  }, [wallet.address, wallet.loading]);
+    async function boot() {
+      try {
+        const signedIn = isUserSignedIn();
+        const currentAddress = getStacksAddress();
+        const currentBtcAddress = getBtcAddress();
+        const currentAllAddresses = getAllWalletAddresses();
+
+        setConnected(Boolean(signedIn && currentAddress));
+        setAddress(currentAddress);
+        setBtcAddress(currentBtcAddress);
+        setAllAddresses(currentAllAddresses);
+        if (currentAddress) {
+            try {
+              await saveMerchantRails({
+                owner: currentAddress,
+                stacksAddress: currentAddress,
+                btcAddress: currentBtcAddress ?? null,
+                usdcxAddress: currentAddress,
+                usdcAddress: null,
+              });
+            } catch (error) {
+              console.error("Failed to sync merchant rails on boot", error);
+            }
+          }
+          
+        if (signedIn && currentAddress) {
+          await refreshMerchant();
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void boot();
+  }, [refreshMerchant]);
 
   return {
-    connected: wallet.connected,
-    address: wallet.address,
+    connected,
+    address,
     merchant,
     merchantId,
-    loading: wallet.loading || loading,
-    connecting: wallet.connecting,
+    rails,
+    loading,
+    connecting,
     creatingMerchant,
     error,
-    connect: wallet.connect,
-    disconnect: wallet.disconnect,
+    connect,
+    disconnect,
     createMerchant,
-    refetch: loadMerchant,
+    refreshMerchant,
   };
 }

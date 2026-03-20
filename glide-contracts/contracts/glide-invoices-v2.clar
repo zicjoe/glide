@@ -1,4 +1,4 @@
-;; glide-invoices.clar
+;; glide-invoices-v2.clar
 
 (define-constant ERR_UNAUTHORIZED (err u300))
 (define-constant ERR_MERCHANT_NOT_FOUND (err u301))

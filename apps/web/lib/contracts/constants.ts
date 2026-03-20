@@ -143,3 +143,47 @@ export const ASSET = {
         return `Unknown (${level})`;
     }
   }
+
+  export function assetDecimals(asset: number): number {
+    switch (asset) {
+      case ASSET.SBTC:
+        return 8;
+      case ASSET.USDCX:
+        return 6;
+      default:
+        return 0;
+    }
+  }
+  
+  export function formatAssetAmount(amount: number, asset: number): string {
+    const decimals = assetDecimals(asset);
+    const value = Number(amount) / Math.pow(10, decimals);
+  
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    });
+  }
+
+  export function assetDecimalsByLabel(label: string): number {
+    switch (label.toLowerCase()) {
+      case "btc":
+      case "sbtc":
+        return 8;
+      case "usdc":
+      case "usdcx":
+        return 6;
+      default:
+        return 0;
+    }
+  }
+  
+  export function formatRailAmount(amount: number, assetLabel: string): string {
+    const decimals = assetDecimalsByLabel(assetLabel);
+    const value = Number(amount) / Math.pow(10, decimals);
+  
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    });
+  }

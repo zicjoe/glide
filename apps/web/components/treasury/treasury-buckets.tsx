@@ -1,3 +1,5 @@
+"use client";
+
 import { Wallet, Plus, MoreVertical, TrendingUp, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -51,7 +53,8 @@ export function TreasuryBuckets({
           </div>
           <Button
             variant="outline"
-            className="h-9 px-4 text-sm border-gray-300 text-gray-700 hover:bg-white hover:border-gray-400 shadow-sm font-medium"
+            disabled
+            className="h-9 px-4 text-sm border-gray-300 text-gray-500 bg-white shadow-sm font-medium"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Bucket
@@ -111,9 +114,13 @@ export function TreasuryBuckets({
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Label className="text-xs font-medium text-gray-600">Enabled</Label>
-                      <Switch checked={bucket.enabled} />
+                      <Switch checked={bucket.enabled} disabled />
                     </div>
-                    <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button
+                      type="button"
+                      disabled
+                      className="text-gray-300 cursor-default"
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </div>
@@ -128,7 +135,7 @@ export function TreasuryBuckets({
                       type="number"
                       value={(bucket.allocationBps / 100).toFixed(0)}
                       readOnly
-                      className="text-sm h-9"
+                      className="text-sm h-9 bg-gray-50"
                     />
                   </div>
                   <div className="col-span-2">
@@ -137,7 +144,8 @@ export function TreasuryBuckets({
                     </Label>
                     <div className="flex gap-2">
                       <button
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        disabled
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-default ${
                           bucket.idleMode === IDLE_MODE.HOLD
                             ? "border-2 border-gray-600 bg-gray-100 text-gray-700"
                             : "border border-gray-200 bg-white text-gray-600"
@@ -146,7 +154,8 @@ export function TreasuryBuckets({
                         HOLD
                       </button>
                       <button
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        disabled
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-default ${
                           bucket.idleMode === IDLE_MODE.EARN
                             ? "border-2 border-green-600 bg-green-100 text-green-700"
                             : "border border-gray-200 bg-white text-gray-600"

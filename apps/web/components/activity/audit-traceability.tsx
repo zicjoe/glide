@@ -1,33 +1,43 @@
-import { Shield, CheckCircle2, Database, Upload, Clock } from "lucide-react";
+"use client";
 
-const auditMetrics = [
-  {
-    label: "Immutable Logs",
-    status: "Active",
-    icon: Shield,
-    iconColor: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-  },
-  {
-    label: "Export Ready",
-    status: "Available",
-    icon: Upload,
-    iconColor: "text-blue-600",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-  },
-  {
-    label: "Retention",
-    status: "12 months",
-    icon: Clock,
-    iconColor: "text-purple-600",
-    bgColor: "bg-purple-50",
-    borderColor: "border-purple-200",
-  },
-];
+import { Shield, CheckCircle2, Database, Upload, Clock } from "lucide-react";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
+import { useIndexedActivity } from "@/hooks/use-indexed-activity";
 
 export function AuditTraceability() {
+  const { merchantId } = useMerchantSession();
+  const { activities, loading } = useIndexedActivity(merchantId, 200);
+
+  const storageEstimateKb = activities.length * 2;
+  const storagePercent = Math.min(Math.round((storageEstimateKb / 1024) * 100), 100);
+
+  const auditMetrics = [
+    {
+      label: "Immutable Logs",
+      status: "Indexed",
+      icon: Shield,
+      iconColor: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+    },
+    {
+      label: "Export Ready",
+      status: "Available",
+      icon: Upload,
+      iconColor: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+    },
+    {
+      label: "Retention",
+      status: "Merchant scoped",
+      icon: Clock,
+      iconColor: "text-purple-600",
+      bgColor: "bg-purple-50",
+      borderColor: "border-purple-200",
+    },
+  ];
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
       <div className="px-6 py-5 border-b border-gray-200">
@@ -70,13 +80,15 @@ export function AuditTraceability() {
             <Database className="h-4 w-4 text-gray-600" />
             <span className="text-sm font-semibold text-gray-900">Storage</span>
           </div>
-          <span className="text-xs text-gray-600">234.5 MB</span>
+          <span className="text-xs text-gray-600">
+            {loading ? "Calculating..." : `${storageEstimateKb} KB`}
+          </span>
         </div>
         <div className="w-full bg-white rounded-full h-2 overflow-hidden shadow-inner">
-          <div className="bg-blue-500 h-2 rounded-full" style={{ width: "34%" }} />
+          <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${storagePercent}%` }} />
         </div>
         <div className="text-xs text-gray-600 mt-2">
-          34% of 1 GB allocated
+          {storagePercent}% of 1 MB display estimate
         </div>
       </div>
     </div>

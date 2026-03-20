@@ -1,4 +1,4 @@
-;; glide-settlements.clar
+;; glide-settlements-v2.clar
 
 (define-constant ERR_UNAUTHORIZED (err u400))
 (define-constant ERR_MERCHANT_NOT_FOUND (err u401))

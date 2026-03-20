@@ -1,13 +1,18 @@
 import { Router } from "express";
 import { query } from "../../db.js";
+import { syncMerchantByOwner } from "../../sync/merchants.js";
 
 export const merchantRouter = Router();
 
 merchantRouter.get("/:owner", async (req, res) => {
   try {
+    const owner = req.params.owner;
+
+    await syncMerchantByOwner(owner);
+
     const result = await query(
       `SELECT * FROM merchants WHERE owner = $1 LIMIT 1`,
-      [req.params.owner],
+      [owner],
     );
 
     res.json({ merchant: result.rows[0] ?? null });

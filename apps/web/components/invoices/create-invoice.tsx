@@ -8,9 +8,35 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { writeCreateInvoice } from "@/lib/contracts/writers";
 import { ASSET, assetLabel } from "@/lib/contracts/constants";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
+import { useIndexedTreasury } from "@/hooks/use-indexed-treasury";
 
 function futureTs(days: number) {
   return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
+}
+
+function assetDecimals(asset: 0 | 1) {
+  return asset === ASSET.SBTC ? 8 : 6;
+}
+
+function toBaseUnits(value: string, decimals: number): number | null {
+  const trimmed = value.trim();
+
+  if (!trimmed) return null;
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+
+  const [whole, fraction = ""] = trimmed.split(".");
+
+  if (fraction.length > decimals) {
+    return null;
+  }
+
+  const paddedFraction = (fraction + "0".repeat(decimals)).slice(0, decimals);
+  const normalized = `${whole}${paddedFraction}`.replace(/^0+$/, "0");
+  const parsed = Number(normalized);
+
+  if (Number.isNaN(parsed)) return null;
+  return parsed;
 }
 
 type CreateInvoiceProps = {
@@ -22,17 +48,43 @@ export function CreateInvoice({
   merchantId,
   onCreated,
 }: CreateInvoiceProps) {
+  const { address, rails } = useMerchantSession();
+  const { destinations } = useIndexedTreasury(address ?? null);
+
   const [reference, setReference] = useState("");
   const [amount, setAmount] = useState("");
   const [asset, setAsset] = useState<0 | 1>(ASSET.SBTC);
   const [description, setDescription] = useState("");
   const [expiryDays, setExpiryDays] = useState(7);
+  const [selectedDestinationId, setSelectedDestinationId] = useState<number | null>(null);
+  const [customPaymentAddress, setCustomPaymentAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [lastCheckoutLink, setLastCheckoutLink] = useState<string | null>(null);
 
-  const parsedAmount = Number(amount || 0);
+  const decimals = useMemo(() => assetDecimals(asset), [asset]);
+
+  const parsedAmount = useMemo(() => {
+    return toBaseUnits(amount, decimals);
+  }, [amount, decimals]);
+
   const expiryAt = useMemo(() => futureTs(expiryDays), [expiryDays]);
+
+  const assetDestinations = destinations.filter(
+    (item) => item.asset === asset && item.enabled,
+  );
+
+  const selectedDestination =
+    selectedDestinationId == null
+      ? null
+      : assetDestinations.find((item) => item.destinationId === selectedDestinationId) ?? null;
+
+  const fallbackNativeAddress = rails.stacksAddress || address || "";
+
+  const resolvedPaymentDestination =
+    customPaymentAddress.trim() ||
+    selectedDestination?.destination ||
+    fallbackNativeAddress;
 
   function buildCheckoutLink(ref: string) {
     if (typeof window === "undefined") return `/checkout/${encodeURIComponent(ref)}`;
@@ -55,13 +107,22 @@ export function CreateInvoice({
       return;
     }
 
-    if (!parsedAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      setMessage("Enter a valid amount.");
+    if (parsedAmount == null || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setMessage(
+        asset === ASSET.SBTC
+          ? "Enter a valid sBTC amount with up to 8 decimals."
+          : "Enter a valid USDCx amount with up to 6 decimals.",
+      );
       return;
     }
 
     if (!description.trim()) {
       setMessage("Description is required.");
+      return;
+    }
+
+    if (!resolvedPaymentDestination) {
+      setMessage("Payment destination is required.");
       return;
     }
 
@@ -79,6 +140,8 @@ export function CreateInvoice({
         amount: parsedAmount,
         description: description.trim(),
         expiryAt,
+        destinationId: selectedDestination?.destinationId ?? null,
+        paymentDestination: resolvedPaymentDestination,
       });
 
       setMessage("Invoice submitted. Waiting for indexer refresh...");
@@ -96,6 +159,8 @@ export function CreateInvoice({
       setDescription("");
       setExpiryDays(7);
       setAsset(ASSET.SBTC);
+      setSelectedDestinationId(null);
+      setCustomPaymentAddress("");
     } catch (err) {
       setMessage(
         err instanceof Error ? err.message : "Failed to create invoice",
@@ -146,9 +211,14 @@ export function CreateInvoice({
                 <Input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="100000"
+                  placeholder={asset === ASSET.SBTC ? "0.00125000" : "500.250000"}
                   className="text-sm font-mono"
                 />
+                <p className="text-xs text-gray-500 mt-2">
+                  {asset === ASSET.SBTC
+                    ? "Supports up to 8 decimals for sBTC."
+                    : "Supports up to 6 decimals for USDCx."}
+                </p>
               </div>
             </div>
 
@@ -159,7 +229,10 @@ export function CreateInvoice({
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setAsset(ASSET.SBTC)}
+                  onClick={() => {
+                    setAsset(ASSET.SBTC);
+                    setSelectedDestinationId(null);
+                  }}
                   className={`flex-1 px-4 py-3 rounded-lg text-sm transition-all ${
                     asset === ASSET.SBTC
                       ? "border-2 border-blue-600 bg-blue-50 font-semibold text-blue-700"
@@ -170,7 +243,10 @@ export function CreateInvoice({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAsset(ASSET.USDCX)}
+                  onClick={() => {
+                    setAsset(ASSET.USDCX);
+                    setSelectedDestinationId(null);
+                  }}
                   className={`flex-1 px-4 py-3 rounded-lg text-sm transition-all ${
                     asset === ASSET.USDCX
                       ? "border-2 border-blue-600 bg-blue-50 font-semibold text-blue-700"
@@ -193,6 +269,51 @@ export function CreateInvoice({
                 className="text-sm resize-none"
                 rows={3}
               />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-900 mb-2 block">
+                Payment destination
+              </Label>
+
+              <select
+                value={selectedDestinationId ?? ""}
+                onChange={(e) =>
+                  setSelectedDestinationId(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              >
+                <option value="">Use merchant Stacks wallet</option>
+                {assetDestinations.map((destination) => (
+                  <option
+                    key={destination.destinationId}
+                    value={destination.destinationId}
+                  >
+                    {destination.label} • {destination.destination}
+                  </option>
+                ))}
+              </select>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Invoice stores this destination as its native settlement wallet.
+              </p>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-900 mb-2 block">
+                Override payment address
+              </Label>
+              <Input
+                value={customPaymentAddress}
+                onChange={(e) => setCustomPaymentAddress(e.target.value)}
+                placeholder="SP..."
+                className="text-sm font-mono"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Optional. This overrides the selected destination for this invoice only.
+              </p>
             </div>
 
             <div>
@@ -284,6 +405,20 @@ export function CreateInvoice({
                 </div>
 
                 <div>
+                  <div className="text-xs text-gray-500 mb-1">Native Settlement Wallet</div>
+                  <div className="text-xs text-gray-700 break-all">
+                    {resolvedPaymentDestination || "Not set"}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Merchant BTC Wallet</div>
+                  <div className="text-xs text-gray-700 break-all">
+                    {rails.btcAddress || "Not connected"}
+                  </div>
+                </div>
+
+                <div>
                   <div className="text-xs text-gray-500 mb-1">Description</div>
                   <div className="text-xs text-gray-700 leading-relaxed">
                     {description || "No description"}
@@ -306,10 +441,18 @@ export function CreateInvoice({
                     {expiryDays} day{expiryDays > 1 ? "s" : ""} from creation
                   </div>
                 </div>
+
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Base Units</div>
+                  <div className="text-xs text-gray-700 break-all">
+                    {parsedAmount ?? "Invalid amount"}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>      </div>
+        </div>      
+      </div>
     </div>
   );
 }

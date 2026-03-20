@@ -57,3 +57,13 @@ epoch = "latest"
 path = "contracts/glide-strategy-registry.clar"
 clarity_version = 4
 epoch = "latest"
+
+[contracts.glide-invoices-v2]
+path = "contracts/glide-invoices-v2.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.glide-settlements-v2]
+path = "contracts/glide-settlements-v2.clar"
+clarity_version = 4
+epoch = "latest"

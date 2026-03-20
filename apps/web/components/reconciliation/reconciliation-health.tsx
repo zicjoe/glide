@@ -1,42 +1,80 @@
+"use client";
+
 import { Activity, CheckCircle2, TrendingUp, Clock } from "lucide-react";
+import { useMerchantSession } from "@/hooks/use-merchant-session";
+import { useIndexedInvoices } from "@/hooks/use-indexed-invoices";
+import { useIndexedSettlements } from "@/hooks/use-indexed-settlements";
+import { useIndexedActivity } from "@/hooks/use-indexed-activity";
+import { INVOICE_STATUS } from "@/lib/contracts/constants";
 
-const healthMetrics = [
-  {
-    label: "System Accuracy",
-    value: "95.5%",
-    status: "healthy" as const,
-    trend: "+2.3%",
-  },
-  {
-    label: "Matched Records",
-    value: "149 / 156",
-    status: "healthy" as const,
-    trend: "95.5%",
-  },
-  {
-    label: "Last Run",
-    value: "2 min ago",
-    status: "recent" as const,
-    trend: "Auto",
-  },
-];
-
-const statusConfig = {
-  healthy: {
-    iconColor: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-    textColor: "text-green-700",
-  },
-  recent: {
-    iconColor: "text-blue-600",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-    textColor: "text-blue-700",
-  },
-};
+function createdLabel(createdAt: number) {
+  const date = new Date(createdAt * 1000);
+  return date.toLocaleString();
+}
 
 export function ReconciliationHealth() {
+  const { merchantId } = useMerchantSession();
+  const { invoices } = useIndexedInvoices(merchantId);
+  const { settlements } = useIndexedSettlements(merchantId);
+  const { activities } = useIndexedActivity(merchantId, 20);
+
+  const paidInvoices = invoices.filter((invoice) => invoice.status === INVOICE_STATUS.PAID);
+  const matchedRecords = paidInvoices.filter((invoice) =>
+    settlements.some(
+      (settlement) =>
+        settlement.invoiceId === invoice.invoiceId ||
+        settlement.settlementId === invoice.settlementId,
+    ),
+  ).length;
+
+  const accuracy =
+    paidInvoices.length === 0
+      ? 100
+      : Math.round((matchedRecords / paidInvoices.length) * 1000) / 10;
+
+  const lastRun = activities.find(
+    (activity) =>
+      activity.eventType.includes("payment_status_synced") ||
+      activity.eventType.includes("settlement") ||
+      activity.eventType.includes("invoice"),
+  );
+
+  const healthMetrics = [
+    {
+      label: "System Accuracy",
+      value: `${accuracy}%`,
+      status: "healthy" as const,
+      trend: `${matchedRecords} matched`,
+    },
+    {
+      label: "Matched Records",
+      value: `${matchedRecords} / ${paidInvoices.length}`,
+      status: "healthy" as const,
+      trend: "Indexed",
+    },
+    {
+      label: "Last Run",
+      value: lastRun ? createdLabel(lastRun.createdAt) : "No runs yet",
+      status: "recent" as const,
+      trend: "Auto",
+    },
+  ];
+
+  const statusConfig = {
+    healthy: {
+      iconColor: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+      textColor: "text-green-700",
+    },
+    recent: {
+      iconColor: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+      textColor: "text-blue-700",
+    },
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
       <div className="px-6 py-5 border-b border-gray-200">
@@ -64,7 +102,7 @@ export function ReconciliationHealth() {
                 <div className="text-sm font-medium text-gray-900">{metric.label}</div>
                 <CheckCircle2 className={`h-4 w-4 ${config.iconColor}`} />
               </div>
-              <div className="flex items-end justify-between">
+              <div className="flex items-end justify-between gap-3">
                 <div className={`text-2xl font-semibold ${config.textColor}`}>
                   {metric.value}
                 </div>
@@ -84,10 +122,10 @@ export function ReconciliationHealth() {
             <Clock className="h-4 w-4 text-gray-600" />
             <span className="text-sm font-semibold text-gray-900">Auto-Reconciliation</span>
           </div>
-          <span className="text-xs text-gray-600">Every 30 minutes</span>
+          <span className="text-xs text-gray-600">Indexer cycle based</span>
         </div>
         <div className="mt-2 text-xs text-gray-600">
-          Next run scheduled in 28 minutes
+          Updated from indexed invoices and settlements
         </div>
       </div>
     </div>

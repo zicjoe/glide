@@ -1,3 +1,5 @@
+"use client";
+
 import { Settings } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -7,7 +9,7 @@ import { ASSET } from "@/lib/contracts/constants";
 
 type SettlementDefaultsProps = {
   policy: TreasuryPolicy | null;
-  merchant: Merchant;
+  
 };
 
 export function SettlementDefaults({
@@ -33,6 +35,10 @@ export function SettlementDefaults({
       </div>
 
       <div className="p-6">
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+          Indexed onchain configuration. Editing actions can be enabled next.
+        </div>
+
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-6">
             <div>
@@ -40,18 +46,24 @@ export function SettlementDefaults({
                 Default Settlement Asset
               </Label>
               <div className="flex gap-3">
-                <button className={`flex-1 px-4 py-3 border-2 rounded-lg text-sm transition-all ${
-                  settlementAsset === ASSET.SBTC
-                    ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
-                    : "border-gray-200 bg-white text-gray-700 font-medium"
-                }`}>
+                <button
+                  disabled
+                  className={`flex-1 px-4 py-3 border-2 rounded-lg text-sm transition-all cursor-default ${
+                    settlementAsset === ASSET.SBTC
+                      ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                      : "border-gray-200 bg-white text-gray-700 font-medium"
+                  }`}
+                >
                   sBTC
                 </button>
-                <button className={`flex-1 px-4 py-3 border-2 rounded-lg text-sm transition-all ${
-                  settlementAsset === ASSET.USDCX
-                    ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
-                    : "border-gray-200 bg-white text-gray-700 font-medium"
-                }`}>
+                <button
+                  disabled
+                  className={`flex-1 px-4 py-3 border-2 rounded-lg text-sm transition-all cursor-default ${
+                    settlementAsset === ASSET.USDCX
+                      ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                      : "border-gray-200 bg-white text-gray-700 font-medium"
+                  }`}
+                >
                   USDCx
                 </button>
               </div>
@@ -69,7 +81,7 @@ export function SettlementDefaults({
                   Automatically distribute settlements across treasury buckets
                 </p>
               </div>
-              <Switch checked={autoSplit} />
+              <Switch checked={autoSplit} disabled />
             </div>
           </div>
 
@@ -83,7 +95,7 @@ export function SettlementDefaults({
                   Route balances above threshold into yield strategies
                 </p>
               </div>
-              <Switch checked={idleYield} />
+              <Switch checked={idleYield} disabled />
             </div>
 
             <div>
@@ -95,14 +107,14 @@ export function SettlementDefaults({
                   type="text"
                   value={String(yieldThreshold)}
                   readOnly
-                  className="pr-16 font-mono text-sm"
+                  className="pr-16 font-mono text-sm bg-gray-50"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
                   {settlementAsset === ASSET.SBTC ? "sBTC" : "USDCx"}
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Minimum balance before deploying to yield strategies
+                Minimum indexed threshold before deploying to yield strategies
               </p>
             </div>
           </div>

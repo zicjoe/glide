@@ -59,6 +59,8 @@ export async function initSchema() {
       amount BIGINT NOT NULL,
       description TEXT NOT NULL,
       expiry_at BIGINT NOT NULL,
+      destination_id INTEGER,
+      payment_destination TEXT NOT NULL,
       status INTEGER NOT NULL,
       created_at BIGINT NOT NULL,
       paid_at BIGINT NOT NULL,
@@ -103,7 +105,17 @@ export async function initSchema() {
       observed_txid TEXT,
       observed_at BIGINT,
       confirmed_at BIGINT,
-      updated_at BIGINT NOT NULL
+      updated_at BIGINT NOT NULL,
+      selected_payment_rail TEXT,
+      quoted_amount BIGINT,
+      quoted_asset TEXT,
+      route_type TEXT,
+      route_status TEXT,
+      normalized_asset INTEGER,
+      normalized_amount BIGINT,
+      cashback_eligible BOOLEAN NOT NULL DEFAULT false,
+      cashback_bps INTEGER NOT NULL DEFAULT 0,
+      cashback_amount BIGINT NOT NULL DEFAULT 0
     );
   `);
 
@@ -130,7 +142,7 @@ export async function initSchema() {
       updated_at BIGINT NOT NULL
     );
   `);
-  
+
   await query(`
     CREATE TABLE IF NOT EXISTS yield_queue_items (
       queue_id INTEGER PRIMARY KEY,
@@ -144,7 +156,7 @@ export async function initSchema() {
       executor TEXT NOT NULL
     );
   `);
-  
+
   await query(`
     CREATE TABLE IF NOT EXISTS yield_positions (
       position_id INTEGER PRIMARY KEY,
@@ -160,7 +172,7 @@ export async function initSchema() {
       executor TEXT NOT NULL
     );
   `);
-  
+
   await query(`
     CREATE TABLE IF NOT EXISTS vault_balances (
       merchant_id INTEGER NOT NULL,
@@ -173,7 +185,6 @@ export async function initSchema() {
       PRIMARY KEY (merchant_id, bucket_id, asset)
     );
   `);
-  
 
   await query(`
     CREATE TABLE IF NOT EXISTS refunds (
@@ -191,5 +202,92 @@ export async function initSchema() {
       updated_at BIGINT NOT NULL
     );
   `);
-}
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS cashback_rewards (
+      reward_id BIGSERIAL PRIMARY KEY,
+      invoice_id INTEGER NOT NULL,
+      merchant_id INTEGER NOT NULL,
+      payment_rail TEXT NOT NULL,
+      reward_asset INTEGER NOT NULL,
+      reward_amount BIGINT NOT NULL,
+      reward_bps INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      wallet_address TEXT,
+      created_at BIGINT NOT NULL,
+      paid_at BIGINT
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS merchant_receive_rails (
+      owner TEXT PRIMARY KEY,
+      stacks_address TEXT,
+      btc_address TEXT,
+      usdc_address TEXT,
+      usdcx_address TEXT,
+      updated_at BIGINT NOT NULL
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS invoice_payment_rails (
+      invoice_id INTEGER NOT NULL,
+      rail TEXT NOT NULL,
+      label TEXT NOT NULL,
+      asset_label TEXT NOT NULL,
+      amount BIGINT NOT NULL,
+      normalized_asset INTEGER NOT NULL,
+      normalized_amount BIGINT NOT NULL,
+      customer_status_label TEXT NOT NULL,
+      cashback_eligible BOOLEAN NOT NULL,
+      cashback_bps INTEGER NOT NULL,
+      cashback_amount BIGINT NOT NULL,
+      route_type TEXT NOT NULL,
+      visible_message TEXT NOT NULL,
+      address TEXT,
+      address_label TEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      PRIMARY KEY (invoice_id, rail)
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS conversion_transactions (
+      conversion_id BIGSERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      from_asset TEXT NOT NULL,
+      to_asset TEXT NOT NULL,
+      from_amount BIGINT NOT NULL,
+      to_amount BIGINT NOT NULL,
+      quote_rate NUMERIC NOT NULL,
+      source_address TEXT,
+      destination_address TEXT,
+      txid TEXT,
+      status TEXT NOT NULL,
+      metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    );
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_invoices_reference
+    ON invoices(reference);
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_invoice_payment_status_merchant
+    ON invoice_payment_status(merchant_id);
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_cashback_rewards_invoice
+    ON cashback_rewards(invoice_id);
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_conversion_transactions_merchant
+    ON conversion_transactions(merchant_id);
+  `);
+}
