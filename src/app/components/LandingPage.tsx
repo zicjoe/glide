@@ -6,9 +6,9 @@ export function LandingPage() {
       <nav className="border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <img
-            src="/logo.png"
+            src="/logo-on-dark.png"
             alt="Glide"
-            className="h-8 w-auto"
+            className="h-12 w-auto"
           />
           <div className="flex gap-3">
             <Link

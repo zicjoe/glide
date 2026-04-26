@@ -15,6 +15,8 @@ import {
 
 const API_DELAY = 300;
 const STORAGE_KEY = 'glide.workflow.state.v1';
+const API_MODE = import.meta.env.VITE_GLIDE_API_MODE || 'local';
+const API_BASE_URL = (import.meta.env.VITE_GLIDE_API_BASE_URL || 'http://localhost:8787').replace(/\/$/, '');
 
 interface WorkflowState {
   invoices: Invoice[];
@@ -31,6 +33,27 @@ const createInitialState = (): WorkflowState => ({
 });
 
 let memoryState: WorkflowState | null = null;
+
+function useHttpApi() {
+  return API_MODE === 'http';
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ message: 'Unknown API error' }));
+    throw new Error(errorBody.message || `Glide API request failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
 
 function hasBrowserStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -130,6 +153,8 @@ function assertValidTransition(invoice: Invoice, newStatus: InvoiceStatus) {
 }
 
 export async function getSystemStatus(): Promise<SystemStatus> {
+  if (useHttpApi()) return request<SystemStatus>('/api/system/status');
+
   await delay(API_DELAY);
   return {
     ...mockSystemStatus,
@@ -138,6 +163,8 @@ export async function getSystemStatus(): Promise<SystemStatus> {
 }
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  if (useHttpApi()) return request<DashboardMetrics>('/api/dashboard/metrics');
+
   await delay(API_DELAY);
   const state = readState();
 
@@ -171,6 +198,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 }
 
 export async function getInvoices(): Promise<Invoice[]> {
+  if (useHttpApi()) return request<Invoice[]>('/api/invoices');
+
   await delay(API_DELAY);
   const state = readState();
 
@@ -180,12 +209,28 @@ export async function getInvoices(): Promise<Invoice[]> {
 }
 
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
+  if (useHttpApi()) {
+    try {
+      return await request<Invoice>(`/api/invoices/${id}`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not found')) return null;
+      throw error;
+    }
+  }
+
   await delay(API_DELAY);
   const state = readState();
   return state.invoices.find(inv => inv.id === id) || null;
 }
 
 export async function createInvoice(payload: CreateInvoicePayload): Promise<Invoice> {
+  if (useHttpApi()) {
+    return request<Invoice>('/api/invoices', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   await delay(API_DELAY);
   const state = readState();
   const now = new Date().toISOString();
@@ -273,31 +318,45 @@ async function updateInvoiceStatus(
   return updatedInvoice;
 }
 
+async function postInvoiceAction(invoiceId: string, actionPath: string): Promise<Invoice | null> {
+  return request<Invoice>(`/api/invoices/${invoiceId}/${actionPath}`, {
+    method: 'POST',
+  });
+}
+
 export async function confirmPayment(invoiceId: string): Promise<Invoice | null> {
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'confirm-payment');
   return updateInvoiceStatus(invoiceId, 'PAYMENT_CONFIRMED', 'Payment Confirmed', 'PAYER');
 }
 
 export async function routeSettlement(invoiceId: string): Promise<Invoice | null> {
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'route-settlement');
   return updateInvoiceStatus(invoiceId, 'SETTLEMENT_PENDING', 'Settlement Routed', 'SETTLEMENT_OPERATOR');
 }
 
 export async function markSettled(invoiceId: string): Promise<Invoice | null> {
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-settled');
   return updateInvoiceStatus(invoiceId, 'SETTLED', 'Settlement Confirmed', 'SETTLEMENT_OPERATOR');
 }
 
 export async function markFulfilled(invoiceId: string): Promise<Invoice | null> {
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-fulfilled');
   return updateInvoiceStatus(invoiceId, 'FULFILLED', 'Fulfillment Confirmed', 'BUSINESS');
 }
 
 export async function cancelInvoice(invoiceId: string): Promise<Invoice | null> {
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'cancel');
   return updateInvoiceStatus(invoiceId, 'CANCELLED', 'Invoice Cancelled', 'BUSINESS');
 }
 
 export async function disputeInvoice(invoiceId: string): Promise<Invoice | null> {
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'dispute');
   return updateInvoiceStatus(invoiceId, 'DISPUTED', 'Invoice Disputed', 'PAYER');
 }
 
 export async function getAuditEvents(invoiceId: string): Promise<AuditEvent[]> {
+  if (useHttpApi()) return request<AuditEvent[]>(`/api/invoices/${invoiceId}/audit`);
+
   await delay(API_DELAY);
   const state = readState();
   return [...(state.auditEvents[invoiceId] || [])].sort(
@@ -306,6 +365,11 @@ export async function getAuditEvents(invoiceId: string): Promise<AuditEvent[]> {
 }
 
 export async function resetDemoData(): Promise<void> {
+  if (useHttpApi()) {
+    await request<{ ok: boolean }>('/api/demo/reset', { method: 'POST' });
+    return;
+  }
+
   await delay(API_DELAY);
   writeState(createInitialState());
 }

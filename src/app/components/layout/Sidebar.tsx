@@ -16,9 +16,9 @@ export function Sidebar() {
     <div className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0">
       <div className="p-6 border-b border-sidebar-border">
         <img
-          src="/logo.png"
+          src="/logo-on-dark.png"
           alt="Glide"
-          className="h-8 w-auto"
+          className="h-12 w-auto max-w-[190px]"
         />
       </div>
 

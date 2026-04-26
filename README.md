@@ -4,9 +4,11 @@ Glide is a Canton based business workflow app for invoices, payment confirmation
 
 ## Current status
 
-This repository currently contains the frontend shell generated from Figma Make, cleaned up for local development and future backend integration.
+This repository contains a production styled frontend and the first backend API shell. The frontend can run in local browser state mode or call the backend API over HTTP.
 
 ## Stack
+
+Frontend:
 
 - Vite
 - React
@@ -14,20 +16,60 @@ This repository currently contains the frontend shell generated from Figma Make,
 - Tailwind CSS
 - shadcn style UI components
 
-## Run locally
+Backend shell:
 
-Run these commands in the project root terminal.
+- Node.js built in HTTP server
+- File backed workflow state for local development
+- Route contract that can later move to Prisma, PostgreSQL, and Canton Daml commands
 
-```bash
+## Run frontend only
+
+Run these commands in Windows PowerShell inside the project root.
+
+```powershell
 npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite.
+This uses browser local storage for the workflow state.
+
+## Run backend API shell
+
+Open a second Windows PowerShell terminal inside the project root.
+
+```powershell
+npm run api:dev
+```
+
+The API runs on:
+
+```txt
+http://localhost:8787
+```
+
+Check it in your browser:
+
+```txt
+http://localhost:8787/api/health
+```
+
+## Run frontend against backend API
+
+Keep the backend running in one Windows PowerShell terminal.
+
+Then open another Windows PowerShell terminal inside the project root and run:
+
+```powershell
+npm run dev:http
+```
+
+This uses `.env.http` and makes the frontend call the backend API shell instead of browser local storage.
 
 ## Build
 
-```bash
+Run this in Windows PowerShell inside the project root.
+
+```powershell
 npm run build
 ```
 
@@ -42,11 +84,7 @@ Glide focuses on one end to end business flow:
 5. Record fulfillment
 6. View audit trail
 
-## Backend integration plan
-
-Components should call `src/lib/api.ts`, not mock data directly. The mock data in `src/lib/mockData.ts` is a temporary adapter until the backend is connected.
-
-Future backend routes:
+## API routes
 
 - `GET /api/health`
 - `GET /api/system/status`
@@ -61,7 +99,33 @@ Future backend routes:
 - `POST /api/invoices/:id/cancel`
 - `POST /api/invoices/:id/dispute`
 - `GET /api/invoices/:id/audit`
+- `POST /api/demo/reset`
+
+## Persistence
+
+The backend shell writes local workflow state to:
+
+```txt
+.glide-data/workflow-state.json
+```
+
+This folder is ignored by git. It is only for local development.
+
+## Backend integration plan
+
+Components call `src/lib/api.ts`, not mock data directly. The frontend can switch between local browser state and HTTP API mode using environment variables.
+
+Current mode options:
+
+```txt
+VITE_GLIDE_API_MODE=local
+VITE_GLIDE_API_MODE=http
+```
+
+The next production backend step is replacing the file store with Prisma and PostgreSQL while keeping the API route contract stable.
+
+The next Canton step is adding a Daml adapter so invoice actions map to Canton contract choices.
 
 ## Important claims
 
-Do not claim live fiat payout, full compliance automation, or production mainnet settlement yet. The current product claim is a Canton-ready workflow model for invoice, settlement, fulfillment, and audit using CC and USDCx.
+Do not claim live fiat payout, full compliance automation, or production mainnet settlement yet. The current product claim is a Canton ready workflow model for invoice, settlement, fulfillment, and audit using CC and USDCx.
