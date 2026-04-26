@@ -1,15 +1,24 @@
 import { useState, useEffect } from 'react';
 import type { SystemStatus } from '../../../lib/types';
-import { getSystemStatus } from '../../../lib/api';
+import { getSystemStatus, resetDemoData } from '../../../lib/api';
 import { getSystemStatusColor } from '../../../lib/format';
 
 export function Settings() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState('https://api.glide.example.com');
+  const [resetStatus, setResetStatus] = useState<'idle' | 'resetting' | 'done'>('idle');
 
   useEffect(() => {
     getSystemStatus().then(setSystemStatus);
   }, []);
+
+  const handleResetDemoData = async () => {
+    if (!window.confirm('Reset all local Glide demo workflow data?')) return;
+
+    setResetStatus('resetting');
+    await resetDemoData();
+    setResetStatus('done');
+  };
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -115,6 +124,27 @@ export function Settings() {
             value="Complete state change recording enabled"
           />
         </div>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-xl mb-4 text-foreground">Demo Data</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Reset the local invoice workflow state back to the seeded CC and USDCx demo records.
+          This only clears browser demo data and does not affect any backend or Canton deployment.
+        </p>
+        <button
+          type="button"
+          onClick={handleResetDemoData}
+          disabled={resetStatus === 'resetting'}
+          className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+        >
+          {resetStatus === 'resetting' ? 'Resetting...' : 'Reset Local Demo Data'}
+        </button>
+        {resetStatus === 'done' && (
+          <p className="text-sm text-primary mt-3">
+            Demo workflow data has been reset. Refresh dashboard pages to reload seeded records.
+          </p>
+        )}
       </div>
 
       <div className="bg-muted rounded-xl p-6">
