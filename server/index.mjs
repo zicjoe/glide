@@ -11,6 +11,7 @@ import {
   resetState,
   writeState,
 } from './lib/workflowStore.mjs';
+import { getCantonAdapterStatus, submitInvoiceWorkflow } from './canton/ledgerAdapter.mjs';
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -37,6 +38,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/system/status') {
       return sendJson(res, 200, getSystemStatus());
+    }
+
+    if (req.method === 'GET' && pathname === '/api/canton/status') {
+      return sendJson(res, 200, getCantonAdapterStatus());
     }
 
     if (req.method === 'GET' && pathname === '/api/dashboard/metrics') {
@@ -76,6 +81,43 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'GET' && action === 'audit') {
         return sendJson(res, 200, listAuditEvents(state, invoiceId));
+      }
+
+      if (req.method === 'POST' && action === 'sync-canton') {
+        const invoice = getInvoice(state, invoiceId);
+        if (!invoice) return sendJson(res, 404, { message: `Invoice ${invoiceId} not found` });
+
+        const syncResult = await submitInvoiceWorkflow(invoice);
+        const invoiceIndex = state.invoices.findIndex(item => item.id === invoiceId);
+        const updatedInvoice = {
+          ...invoice,
+          cantonWorkflowId: syncResult.cantonWorkflowId,
+          cantonSyncStatus: syncResult.cantonSyncStatus,
+          cantonLastError: '',
+          updatedAt: new Date().toISOString(),
+        };
+
+        const existingAuditEvents = state.auditEvents[invoiceId] || [];
+        state.invoices[invoiceIndex] = updatedInvoice;
+        state.auditEvents[invoiceId] = [
+          ...existingAuditEvents,
+          {
+            id: `AUD-${invoiceId}-${existingAuditEvents.length + 1}`,
+            invoiceId,
+            action: 'Canton Workflow Finalized',
+            actorRole: 'SETTLEMENT_OPERATOR',
+            timestamp: new Date().toISOString(),
+            previousStatus: invoice.status,
+            newStatus: invoice.status,
+            asset: invoice.asset,
+            amount: invoice.amount,
+            referenceId: syncResult.cantonWorkflowId,
+            metadata: { cantonSyncStatus: syncResult.cantonSyncStatus },
+          },
+        ];
+
+        await writeState(state);
+        return sendJson(res, 200, { invoice: updatedInvoice, sync: syncResult });
       }
 
       if (req.method === 'POST' && action) {

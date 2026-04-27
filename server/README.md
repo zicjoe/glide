@@ -28,3 +28,14 @@ This is intentionally temporary. The next production step is replacing this file
 ## Canton boundary
 
 The current server models CC and USDCx workflow state only. It does not submit Daml commands yet. The next Canton step is adding an adapter that maps these API actions to Daml contract choices.
+
+## Canton adapter routes
+
+The local API shell exposes a Canton adapter boundary for future live ledger wiring:
+
+```txt
+GET  /api/canton/status
+POST /api/invoices/:id/sync-canton
+```
+
+`sync-canton` currently uses mock DevNet mode unless `GLIDE_CANTON_SYNC_MODE` is changed. Mock mode creates a deterministic workflow reference, updates the invoice Canton sync fields, and writes a Canton finality audit event. It is intentionally honest: no live ledger transaction is claimed until the adapter is wired to a real Canton participant / ledger API.

@@ -11,8 +11,17 @@ import {
   cancelInvoice,
   disputeInvoice,
 } from '../../../lib/api';
-import { formatCurrency, formatDateTime, getStatusColor, formatStatusLabel } from '../../../lib/format';
+import {
+  formatCurrency,
+  formatDateTime,
+  getStatusColor,
+  formatStatusLabel,
+  getCantonSyncStatusColor,
+  formatCantonSyncStatus,
+} from '../../../lib/format';
 import { useDemoRole } from '../../../lib/useDemoRole';
+import { syncInvoiceWorkflowToCanton } from '../../../lib/cantonSync';
+import { getCantonReadiness } from '../../../lib/canton';
 import {
   getAvailableWorkflowActions,
   getBlockedWorkflowActions,
@@ -41,6 +50,8 @@ export function InvoiceDetail() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [isSyncingCanton, setIsSyncingCanton] = useState(false);
 
   const loadData = async () => {
     if (!id) return;
@@ -83,6 +94,27 @@ export function InvoiceDetail() {
     }
   };
 
+
+  const handleCantonSync = async () => {
+    if (!invoice) return;
+
+    setIsSyncingCanton(true);
+    setActionError(null);
+    setSyncMessage(null);
+
+    try {
+      const result = await syncInvoiceWorkflowToCanton(invoice.id);
+      setInvoice(result.invoice);
+      setSyncMessage(result.message);
+      await loadData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Canton sync failed. Please try again.';
+      setActionError(message);
+    } finally {
+      setIsSyncingCanton(false);
+    }
+  };
+
   if (loadError) {
     return (
       <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6">
@@ -109,6 +141,8 @@ export function InvoiceDetail() {
 
   const availableActions = getAvailableWorkflowActions(invoice, currentRole);
   const blockedActions = getBlockedWorkflowActions(invoice, currentRole);
+  const cantonReadiness = getCantonReadiness();
+  const cantonSyncIsFinalized = invoice.cantonSyncStatus === 'FINALIZED';
 
   return (
     <div className="space-y-6">
@@ -217,6 +251,41 @@ export function InvoiceDetail() {
             <p className="text-sm text-muted-foreground">
               {getRoleDescription(currentRole)}
             </p>
+          </div>
+
+
+
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-xl mb-4 text-foreground">Canton Sync</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">Sync status</span>
+                <span className={`px-3 py-1 rounded-lg border text-xs ${getCantonSyncStatusColor(invoice.cantonSyncStatus)}`}>
+                  {formatCantonSyncStatus(invoice.cantonSyncStatus)}
+                </span>
+              </div>
+              <MetadataRow label="Bridge mode" value={cantonReadiness.syncMode} />
+              <MetadataRow label="Environment" value={cantonReadiness.environment} />
+              {invoice.cantonWorkflowId && (
+                <MetadataRow label="Workflow ID" value={invoice.cantonWorkflowId} />
+              )}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Mock mode records DevNet-style Canton finality in Supabase for the hackathon demo. Live ledger submission should stay behind the backend adapter.
+              </p>
+              {syncMessage && (
+                <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs text-primary">
+                  {syncMessage}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleCantonSync}
+                disabled={isSyncingCanton || cantonSyncIsFinalized}
+                className="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {cantonSyncIsFinalized ? 'Canton Workflow Finalized' : isSyncingCanton ? 'Syncing...' : 'Sync Canton Workflow'}
+              </button>
+            </div>
           </div>
 
           <div className="bg-card rounded-xl border border-border p-6">

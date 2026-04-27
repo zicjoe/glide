@@ -209,3 +209,15 @@ Supabase is the offchain app backend. Canton is the intended workflow source of 
 ## Important claims
 
 Do not claim live fiat payout, full compliance automation, or production mainnet settlement yet. The current product claim is a Canton ready workflow model for invoice, settlement, fulfillment, and audit using CC and USDCx.
+
+## Canton sync for the demo
+
+Glide now includes a Canton sync panel on the invoice detail page. In hackathon demo mode, it runs with:
+
+```env
+VITE_CANTON_SYNC_MODE=mock
+```
+
+This lets you click **Sync Canton Workflow** after creating or progressing an invoice. The app records a Canton-style workflow id, moves the sync state to `FINALIZED`, and adds an audit event. It does not claim a live Canton ledger transaction yet.
+
+For live wiring, use the backend adapter in `server/canton/ledgerAdapter.mjs` and keep ledger credentials out of the frontend.

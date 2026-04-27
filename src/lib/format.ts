@@ -1,4 +1,4 @@
-import type { InvoiceStatus, AssetType } from './types';
+import type { InvoiceStatus, AssetType, CantonSyncStatus } from './types';
 
 export function formatCurrency(amount: number, asset: AssetType): string {
   const formatted = new Intl.NumberFormat('en-US', {
@@ -56,4 +56,21 @@ export function getSystemStatusColor(status: 'online' | 'offline' | 'degraded'):
     degraded: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   };
   return colors[status];
+}
+
+export function getCantonSyncStatusColor(status?: CantonSyncStatus): string {
+  const colors: Record<CantonSyncStatus, string> = {
+    PENDING: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    READY: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    SUBMITTED: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    ACCEPTED: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    FINALIZED: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    FAILED: 'bg-red-500/20 text-red-300 border-red-500/30',
+  };
+
+  return colors[status || 'PENDING'];
+}
+
+export function formatCantonSyncStatus(status?: CantonSyncStatus): string {
+  return (status || 'PENDING').replace(/_/g, ' ');
 }

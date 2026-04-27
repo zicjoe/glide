@@ -50,3 +50,21 @@ dpm build
 3. Store the created contract id in Supabase as `canton_workflow_id`.
 4. Mirror final ledger state back into Supabase for fast dashboard reads.
 5. Keep Canton as the workflow source of truth and Supabase as the read model.
+
+## Canton bridge adapter
+
+This repository now has two Canton layers:
+
+1. `canton/daml/Glide/Workflow/InvoiceWorkflow.daml` contains the Daml workflow model.
+2. `server/canton/ledgerAdapter.mjs` is the backend boundary where live Canton ledger submission should be wired.
+
+For the hackathon demo, use mock DevNet sync:
+
+```env
+VITE_CANTON_SYNC_MODE=mock
+GLIDE_CANTON_SYNC_MODE=mock
+```
+
+Mock mode does not send live ledger transactions. It records a Canton-style workflow id, marks the sync as finalized, and writes an audit event so judges can see the invoice-to-audit product flow without pretending production settlement is already live.
+
+When the Canton participant / ledger API is ready, keep credentials on the backend only and wire live submission inside `server/canton/ledgerAdapter.mjs`. Do not expose ledger credentials through Vite environment variables in a production deployment.
