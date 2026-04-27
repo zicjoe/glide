@@ -20,7 +20,8 @@ const seedInvoices = [
     createdAt: '2026-04-01T10:00:00Z',
     updatedAt: '2026-04-20T14:30:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-001',
+    cantonReference: 'GLIDE-CN-INV-001',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-002',
@@ -37,7 +38,8 @@ const seedInvoices = [
     createdAt: '2026-04-10T09:00:00Z',
     updatedAt: '2026-04-22T11:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-002',
+    cantonReference: 'GLIDE-CN-INV-002',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-003',
@@ -54,7 +56,8 @@ const seedInvoices = [
     createdAt: '2026-04-15T08:00:00Z',
     updatedAt: '2026-04-23T10:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-003',
+    cantonReference: 'GLIDE-CN-INV-003',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-004',
@@ -71,7 +74,8 @@ const seedInvoices = [
     createdAt: '2026-03-20T12:00:00Z',
     updatedAt: '2026-04-18T16:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-004',
+    cantonReference: 'GLIDE-CN-INV-004',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-005',
@@ -88,7 +92,8 @@ const seedInvoices = [
     createdAt: '2026-03-25T11:00:00Z',
     updatedAt: '2026-04-25T09:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-005',
+    cantonReference: 'GLIDE-CN-INV-005',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-006',
@@ -105,7 +110,8 @@ const seedInvoices = [
     createdAt: '2026-04-18T13:00:00Z',
     updatedAt: '2026-04-18T13:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-006',
+    cantonReference: 'GLIDE-CN-INV-006',
+    cantonSyncStatus: 'PENDING',
   },
 ];
 
@@ -120,7 +126,7 @@ const seedAuditEvents = {
       newStatus: 'DRAFT',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
     {
       id: 'AUD-001-2',
@@ -132,7 +138,7 @@ const seedAuditEvents = {
       newStatus: 'ISSUED',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
     {
       id: 'AUD-001-3',
@@ -144,7 +150,7 @@ const seedAuditEvents = {
       newStatus: 'PAYMENT_PENDING',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
     {
       id: 'AUD-001-4',
@@ -156,7 +162,7 @@ const seedAuditEvents = {
       newStatus: 'PAYMENT_CONFIRMED',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
   ],
 };
@@ -258,7 +264,7 @@ export async function resetState() {
 export function getSystemStatus() {
   return {
     api: 'online',
-    canton: 'online',
+    canton: 'degraded',
     environment: 'DevNet',
     supportedAssets: ['CC', 'USDCx'],
     lastChecked: new Date().toISOString(),
@@ -308,7 +314,7 @@ export function createInvoice(state, payload) {
 
   const now = new Date().toISOString();
   const nextInvoiceId = generateNextInvoiceId(state.invoices);
-  const cantonReference = `CANTON-REF-${String(state.invoices.length + 1).padStart(3, '0')}`;
+  const cantonReference = `GLIDE-CN-${nextInvoiceId}-${payload.asset}-${String(Date.now()).slice(-8)}`;
 
   const invoice = {
     id: nextInvoiceId,
@@ -319,6 +325,7 @@ export function createInvoice(state, payload) {
     updatedAt: now,
     businessId: 'BIZ-001',
     cantonReference,
+    cantonSyncStatus: 'PENDING',
   };
 
   const auditEvents = [

@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react';
 import type { SystemStatus, UserRole } from '../../../lib/types';
 import { getSystemStatus } from '../../../lib/api';
 import { getSystemStatusColor } from '../../../lib/format';
-
-const roles: UserRole[] = ['BUSINESS', 'PAYER', 'SETTLEMENT_OPERATOR', 'OBSERVER'];
+import { useDemoRole } from '../../../lib/useDemoRole';
 
 export function TopBar() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [currentRole, setCurrentRole] = useState<UserRole>('BUSINESS');
+  const { currentRole, setCurrentRole, roles } = useDemoRole();
 
   useEffect(() => {
-    getSystemStatus().then(setSystemStatus);
+    getSystemStatus().then(setSystemStatus).catch(() => setSystemStatus(null));
   }, []);
 
   return (
@@ -36,6 +35,7 @@ export function TopBar() {
           value={currentRole}
           onChange={(e) => setCurrentRole(e.target.value as UserRole)}
           className="px-3 py-1.5 rounded-lg bg-input-background border border-input text-foreground text-sm"
+          title="Demo role"
         >
           {roles.map((role) => (
             <option key={role} value={role}>

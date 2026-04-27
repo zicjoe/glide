@@ -6,6 +6,7 @@ import { createInvoice } from '../../../lib/api';
 export function CreateInvoice() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateInvoicePayload>({
     title: '',
     customerName: '',
@@ -24,14 +25,32 @@ export function CreateInvoice() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const amount = Number(formData.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setSubmitError('Amount must be greater than zero.');
+      return;
+    }
+
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      const invoice = await createInvoice(formData);
+      const invoice = await createInvoice({
+        ...formData,
+        amount,
+        title: formData.title.trim(),
+        customerName: formData.customerName.trim(),
+        payerPartyId: formData.payerPartyId.trim(),
+        observerPartyId: formData.observerPartyId.trim(),
+        settlementDestination: formData.settlementDestination.trim(),
+        description: formData.description.trim(),
+      });
       navigate(`/app/invoices/${invoice.id}`);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to create invoice:', error);
-      alert('Failed to create invoice. Please try again.');
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -103,7 +122,7 @@ export function CreateInvoice() {
             <input
               type="number"
               required
-              min="0"
+              min="0.01"
               step="0.01"
               value={formData.amount}
               onChange={(e) => handleChange('amount', parseFloat(e.target.value))}
@@ -160,6 +179,13 @@ export function CreateInvoice() {
             placeholder="Professional consulting services for Q1 2026"
           />
         </div>
+
+        {submitError && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <p className="font-medium text-red-100">Failed to create invoice</p>
+            <p className="mt-1">{submitError}</p>
+          </div>
+        )}
 
         <div className="flex gap-4 pt-4">
           <button

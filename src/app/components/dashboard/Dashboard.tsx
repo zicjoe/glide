@@ -8,20 +8,59 @@ export function Dashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      getDashboardMetrics(),
-      getInvoices(),
-      getSystemStatus(),
-    ]).then(([metricsData, invoicesData, statusData]) => {
+  const loadDashboard = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const [metricsData, invoicesData, statusData] = await Promise.all([
+        getDashboardMetrics(),
+        getInvoices(),
+        getSystemStatus(),
+      ]);
+
       setMetrics(metricsData);
       setRecentInvoices(invoicesData.slice(0, 5));
       setSystemStatus(statusData);
-    });
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Unknown dashboard loading error';
+      console.error('Failed to load Glide dashboard:', loadError);
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDashboard();
   }, []);
 
-  if (!metrics || !systemStatus) {
+  if (error) {
+    return (
+      <div className="max-w-3xl rounded-xl border border-red-500/40 bg-red-500/10 p-6 text-red-100">
+        <h1 className="text-2xl text-red-50">Dashboard failed to load</h1>
+        <p className="mt-3 text-sm text-red-100/90">{error}</p>
+        <div className="mt-4 rounded-lg border border-red-500/30 bg-background/40 p-4 text-sm text-red-100/80">
+          <p>Check that .env.local is in the project root beside package.json, then restart the dev server.</p>
+          <p className="mt-2 font-mono">VITE_GLIDE_API_MODE=supabase</p>
+          <p className="font-mono">VITE_SUPABASE_URL=https://your-project-ref.supabase.co</p>
+          <p className="font-mono">VITE_SUPABASE_ANON_KEY=your-anon-public-key</p>
+        </div>
+        <button
+          type="button"
+          onClick={loadDashboard}
+          className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:opacity-90"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading || !metrics || !systemStatus) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-muted-foreground">Loading dashboard...</div>

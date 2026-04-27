@@ -12,6 +12,23 @@ import {
   mockSystemStatus,
   mockAuditEvents,
 } from './mockData';
+import {
+  getSupabaseSystemStatus,
+  getSupabaseDashboardMetrics,
+  getSupabaseInvoices,
+  getSupabaseInvoiceById,
+  createSupabaseInvoice,
+  updateSupabaseInvoiceStatus,
+  getSupabaseAuditEvents,
+  resetSupabaseDemoData,
+} from './supabaseApi';
+import {
+  assertRoleCanPerformAction,
+  assertValidTransition as assertWorkflowTransition,
+  workflowActions,
+  type WorkflowActionKey,
+} from './workflowRules';
+import { createCantonReference, getCantonReadiness, initialCantonSyncStatus } from './canton';
 
 const API_DELAY = 300;
 const STORAGE_KEY = 'glide.workflow.state.v1';
@@ -36,6 +53,10 @@ let memoryState: WorkflowState | null = null;
 
 function useHttpApi() {
   return API_MODE === 'http';
+}
+
+function useSupabaseApi() {
+  return API_MODE === 'supabase';
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -132,37 +153,34 @@ function createAuditEvent(params: {
   };
 }
 
-const allowedTransitions: Record<InvoiceStatus, InvoiceStatus[]> = {
-  DRAFT: ['ISSUED', 'CANCELLED', 'DISPUTED'],
-  ISSUED: ['PAYMENT_PENDING', 'PAYMENT_CONFIRMED', 'CANCELLED', 'DISPUTED'],
-  PAYMENT_PENDING: ['PAYMENT_CONFIRMED', 'CANCELLED', 'DISPUTED'],
-  PAYMENT_CONFIRMED: ['SETTLEMENT_PENDING', 'CANCELLED', 'DISPUTED'],
-  SETTLEMENT_PENDING: ['SETTLED', 'DISPUTED'],
-  SETTLED: ['FULFILLED', 'DISPUTED'],
-  FULFILLED: [],
-  CANCELLED: [],
-  DISPUTED: [],
-};
-
 function assertValidTransition(invoice: Invoice, newStatus: InvoiceStatus) {
-  const allowedNextStatuses = allowedTransitions[invoice.status];
+  assertWorkflowTransition(invoice.status, newStatus, invoice.id);
+}
 
-  if (!allowedNextStatuses.includes(newStatus)) {
-    throw new Error(`Cannot move invoice ${invoice.id} from ${invoice.status} to ${newStatus}`);
-  }
+function resolveActorRole(actionKey: WorkflowActionKey, actorRole?: UserRole): UserRole {
+  const resolvedRole = actorRole || workflowActions[actionKey].actorRole;
+  assertRoleCanPerformAction(actionKey, resolvedRole);
+  return resolvedRole;
 }
 
 export async function getSystemStatus(): Promise<SystemStatus> {
+  if (useSupabaseApi()) return getSupabaseSystemStatus();
   if (useHttpApi()) return request<SystemStatus>('/api/system/status');
 
   await delay(API_DELAY);
+  const cantonReadiness = getCantonReadiness();
+
   return {
     ...mockSystemStatus,
+    canton: cantonReadiness.status,
+    environment: cantonReadiness.environment,
+    supportedAssets: cantonReadiness.supportedAssets,
     lastChecked: new Date().toISOString(),
   };
 }
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  if (useSupabaseApi()) return getSupabaseDashboardMetrics();
   if (useHttpApi()) return request<DashboardMetrics>('/api/dashboard/metrics');
 
   await delay(API_DELAY);
@@ -198,6 +216,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 }
 
 export async function getInvoices(): Promise<Invoice[]> {
+  if (useSupabaseApi()) return getSupabaseInvoices();
   if (useHttpApi()) return request<Invoice[]>('/api/invoices');
 
   await delay(API_DELAY);
@@ -209,6 +228,7 @@ export async function getInvoices(): Promise<Invoice[]> {
 }
 
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
+  if (useSupabaseApi()) return getSupabaseInvoiceById(id);
   if (useHttpApi()) {
     try {
       return await request<Invoice>(`/api/invoices/${id}`);
@@ -224,6 +244,7 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
 }
 
 export async function createInvoice(payload: CreateInvoicePayload): Promise<Invoice> {
+  if (useSupabaseApi()) return createSupabaseInvoice(payload);
   if (useHttpApi()) {
     return request<Invoice>('/api/invoices', {
       method: 'POST',
@@ -243,7 +264,8 @@ export async function createInvoice(payload: CreateInvoicePayload): Promise<Invo
     createdAt: now,
     updatedAt: now,
     businessId: 'BIZ-001',
-    cantonReference: `CANTON-REF-${String(state.invoices.length + 1).padStart(3, '0')}`,
+    cantonReference: createCantonReference(nextInvoiceId, payload.asset),
+    cantonSyncStatus: initialCantonSyncStatus(),
   };
 
   const auditEvents = [
@@ -318,43 +340,57 @@ async function updateInvoiceStatus(
   return updatedInvoice;
 }
 
-async function postInvoiceAction(invoiceId: string, actionPath: string): Promise<Invoice | null> {
+async function postInvoiceAction(invoiceId: string, actionPath: string, actorRole?: UserRole): Promise<Invoice | null> {
   return request<Invoice>(`/api/invoices/${invoiceId}/${actionPath}`, {
     method: 'POST',
+    body: JSON.stringify({ actorRole }),
   });
 }
 
-export async function confirmPayment(invoiceId: string): Promise<Invoice | null> {
-  if (useHttpApi()) return postInvoiceAction(invoiceId, 'confirm-payment');
-  return updateInvoiceStatus(invoiceId, 'PAYMENT_CONFIRMED', 'Payment Confirmed', 'PAYER');
+export async function confirmPayment(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
+  const resolvedRole = resolveActorRole('confirmPayment', actorRole);
+  if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.confirmPayment.nextStatus, workflowActions.confirmPayment.actionLabel, resolvedRole);
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'confirm-payment', resolvedRole);
+  return updateInvoiceStatus(invoiceId, workflowActions.confirmPayment.nextStatus, workflowActions.confirmPayment.actionLabel, resolvedRole);
 }
 
-export async function routeSettlement(invoiceId: string): Promise<Invoice | null> {
-  if (useHttpApi()) return postInvoiceAction(invoiceId, 'route-settlement');
-  return updateInvoiceStatus(invoiceId, 'SETTLEMENT_PENDING', 'Settlement Routed', 'SETTLEMENT_OPERATOR');
+export async function routeSettlement(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
+  const resolvedRole = resolveActorRole('routeSettlement', actorRole);
+  if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.routeSettlement.nextStatus, workflowActions.routeSettlement.actionLabel, resolvedRole);
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'route-settlement', resolvedRole);
+  return updateInvoiceStatus(invoiceId, workflowActions.routeSettlement.nextStatus, workflowActions.routeSettlement.actionLabel, resolvedRole);
 }
 
-export async function markSettled(invoiceId: string): Promise<Invoice | null> {
-  if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-settled');
-  return updateInvoiceStatus(invoiceId, 'SETTLED', 'Settlement Confirmed', 'SETTLEMENT_OPERATOR');
+export async function markSettled(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
+  const resolvedRole = resolveActorRole('markSettled', actorRole);
+  if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.markSettled.nextStatus, workflowActions.markSettled.actionLabel, resolvedRole);
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-settled', resolvedRole);
+  return updateInvoiceStatus(invoiceId, workflowActions.markSettled.nextStatus, workflowActions.markSettled.actionLabel, resolvedRole);
 }
 
-export async function markFulfilled(invoiceId: string): Promise<Invoice | null> {
-  if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-fulfilled');
-  return updateInvoiceStatus(invoiceId, 'FULFILLED', 'Fulfillment Confirmed', 'BUSINESS');
+export async function markFulfilled(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
+  const resolvedRole = resolveActorRole('markFulfilled', actorRole);
+  if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.markFulfilled.nextStatus, workflowActions.markFulfilled.actionLabel, resolvedRole);
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-fulfilled', resolvedRole);
+  return updateInvoiceStatus(invoiceId, workflowActions.markFulfilled.nextStatus, workflowActions.markFulfilled.actionLabel, resolvedRole);
 }
 
-export async function cancelInvoice(invoiceId: string): Promise<Invoice | null> {
-  if (useHttpApi()) return postInvoiceAction(invoiceId, 'cancel');
-  return updateInvoiceStatus(invoiceId, 'CANCELLED', 'Invoice Cancelled', 'BUSINESS');
+export async function cancelInvoice(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
+  const resolvedRole = resolveActorRole('cancelInvoice', actorRole);
+  if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.cancelInvoice.nextStatus, workflowActions.cancelInvoice.actionLabel, resolvedRole);
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'cancel', resolvedRole);
+  return updateInvoiceStatus(invoiceId, workflowActions.cancelInvoice.nextStatus, workflowActions.cancelInvoice.actionLabel, resolvedRole);
 }
 
-export async function disputeInvoice(invoiceId: string): Promise<Invoice | null> {
-  if (useHttpApi()) return postInvoiceAction(invoiceId, 'dispute');
-  return updateInvoiceStatus(invoiceId, 'DISPUTED', 'Invoice Disputed', 'PAYER');
+export async function disputeInvoice(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
+  const resolvedRole = resolveActorRole('disputeInvoice', actorRole);
+  if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.disputeInvoice.nextStatus, workflowActions.disputeInvoice.actionLabel, resolvedRole);
+  if (useHttpApi()) return postInvoiceAction(invoiceId, 'dispute', resolvedRole);
+  return updateInvoiceStatus(invoiceId, workflowActions.disputeInvoice.nextStatus, workflowActions.disputeInvoice.actionLabel, resolvedRole);
 }
 
 export async function getAuditEvents(invoiceId: string): Promise<AuditEvent[]> {
+  if (useSupabaseApi()) return getSupabaseAuditEvents(invoiceId);
   if (useHttpApi()) return request<AuditEvent[]>(`/api/invoices/${invoiceId}/audit`);
 
   await delay(API_DELAY);
@@ -365,6 +401,7 @@ export async function getAuditEvents(invoiceId: string): Promise<AuditEvent[]> {
 }
 
 export async function resetDemoData(): Promise<void> {
+  if (useSupabaseApi()) return resetSupabaseDemoData();
   if (useHttpApi()) {
     await request<{ ok: boolean }>('/api/demo/reset', { method: 'POST' });
     return;

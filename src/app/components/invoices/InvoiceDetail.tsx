@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import type { Invoice, AuditEvent } from '../../../lib/types';
+import type { Invoice, AuditEvent, UserRole } from '../../../lib/types';
 import {
   getInvoiceById,
   getAuditEvents,
@@ -12,46 +12,92 @@ import {
   disputeInvoice,
 } from '../../../lib/api';
 import { formatCurrency, formatDateTime, getStatusColor, formatStatusLabel } from '../../../lib/format';
+import { useDemoRole } from '../../../lib/useDemoRole';
+import {
+  getAvailableWorkflowActions,
+  getBlockedWorkflowActions,
+  getRoleDescription,
+  type WorkflowActionDefinition,
+  type WorkflowActionKey,
+} from '../../../lib/workflowRules';
+
+type WorkflowActionRunner = (id: string, actorRole?: UserRole) => Promise<Invoice | null>;
+
+const actionRunners: Record<WorkflowActionKey, WorkflowActionRunner> = {
+  confirmPayment,
+  routeSettlement,
+  markSettled,
+  markFulfilled,
+  cancelInvoice,
+  disputeInvoice,
+};
 
 export function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentRole } = useDemoRole();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!id) return;
-    const [invoiceData, auditData] = await Promise.all([
-      getInvoiceById(id),
-      getAuditEvents(id),
-    ]);
-    setInvoice(invoiceData);
-    setAuditEvents(auditData);
+
+    setLoadError(null);
+
+    try {
+      const [invoiceData, auditData] = await Promise.all([
+        getInvoiceById(id),
+        getAuditEvents(id),
+      ]);
+
+      setInvoice(invoiceData);
+      setAuditEvents(auditData);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load invoice workflow';
+      setLoadError(message);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, [id]);
 
-  const handleAction = async (
-    action: (id: string) => Promise<Invoice | null>,
-    confirmMessage?: string
-  ) => {
-    if (confirmMessage && !window.confirm(confirmMessage)) return;
+  const handleAction = async (action: WorkflowActionDefinition) => {
+    if (action.confirmMessage && !window.confirm(action.confirmMessage)) return;
     if (!id) return;
 
     setIsProcessing(true);
+    setActionError(null);
+
     try {
-      await action(id);
+      await actionRunners[action.key](id, currentRole);
       await loadData();
     } catch (error) {
-      console.error('Action failed:', error);
-      alert('Action failed. Please try again.');
+      const message = error instanceof Error ? error.message : 'Action failed. Please try again.';
+      setActionError(message);
     } finally {
       setIsProcessing(false);
     }
   };
+
+  if (loadError) {
+    return (
+      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6">
+        <h1 className="text-2xl text-foreground mb-2">Invoice failed to load</h1>
+        <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
+        <button
+          type="button"
+          onClick={loadData}
+          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (!invoice) {
     return (
@@ -61,9 +107,12 @@ export function InvoiceDetail() {
     );
   }
 
+  const availableActions = getAvailableWorkflowActions(invoice, currentRole);
+  const blockedActions = getBlockedWorkflowActions(invoice, currentRole);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <button
             onClick={() => navigate('/app/invoices')}
@@ -78,6 +127,13 @@ export function InvoiceDetail() {
           {formatStatusLabel(invoice.status)}
         </div>
       </div>
+
+      {actionError && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+          <div className="text-sm text-foreground">Action failed</div>
+          <p className="text-sm text-muted-foreground mt-1">{actionError}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
@@ -96,6 +152,19 @@ export function InvoiceDetail() {
               {invoice.cantonReference && (
                 <div className="col-span-2">
                   <DetailRow label="Canton Reference" value={invoice.cantonReference} />
+                </div>
+              )}
+              {invoice.cantonWorkflowId && (
+                <div className="col-span-2">
+                  <DetailRow label="Canton Workflow ID" value={invoice.cantonWorkflowId} mono />
+                </div>
+              )}
+              {invoice.cantonSyncStatus && (
+                <DetailRow label="Canton Sync" value={invoice.cantonSyncStatus} />
+              )}
+              {invoice.cantonLastError && (
+                <div className="col-span-2">
+                  <DetailRow label="Canton Last Error" value={invoice.cantonLastError} />
                 </div>
               )}
               <div className="col-span-2">
@@ -124,75 +193,64 @@ export function InvoiceDetail() {
                     <div className="text-sm text-muted-foreground">
                       {event.actorRole} • {formatDateTime(event.timestamp)}
                     </div>
+                    {event.previousStatus && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatStatusLabel(event.previousStatus)} → {formatStatusLabel(event.newStatus)}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+              {auditEvents.length === 0 && (
+                <div className="text-sm text-muted-foreground">No audit events recorded yet.</div>
+              )}
             </div>
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-xl mb-2 text-foreground">Role View</h2>
+            <div className="px-3 py-2 rounded-lg bg-muted text-foreground mb-3">
+              {currentRole.replace(/_/g, ' ')}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {getRoleDescription(currentRole)}
+            </p>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-xl mb-4 text-foreground">Actions</h2>
             <div className="space-y-3">
-              {invoice.status === 'ISSUED' || invoice.status === 'PAYMENT_PENDING' ? (
+              {availableActions.map((action) => (
                 <ActionButton
-                  onClick={() => handleAction(confirmPayment)}
+                  key={action.key}
+                  onClick={() => handleAction(action)}
                   disabled={isProcessing}
-                  label="Confirm Payment"
-                  variant="primary"
+                  label={isProcessing ? 'Processing...' : action.label}
+                  variant={action.destructive ? 'danger' : 'primary'}
                 />
-              ) : null}
+              ))}
 
-              {invoice.status === 'PAYMENT_CONFIRMED' ? (
-                <ActionButton
-                  onClick={() => handleAction(routeSettlement)}
-                  disabled={isProcessing}
-                  label="Route Settlement"
-                  variant="primary"
-                />
-              ) : null}
+              {availableActions.length === 0 && (
+                <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+                  No action is available for this role at the current invoice status.
+                </div>
+              )}
 
-              {invoice.status === 'SETTLEMENT_PENDING' ? (
-                <ActionButton
-                  onClick={() => handleAction(markSettled)}
-                  disabled={isProcessing}
-                  label="Mark Settled"
-                  variant="primary"
-                />
-              ) : null}
-
-              {invoice.status === 'SETTLED' ? (
-                <ActionButton
-                  onClick={() => handleAction(markFulfilled)}
-                  disabled={isProcessing}
-                  label="Mark Fulfilled"
-                  variant="primary"
-                />
-              ) : null}
-
-              {invoice.status !== 'CANCELLED' &&
-                invoice.status !== 'FULFILLED' &&
-                invoice.status !== 'DISPUTED' ? (
-                <>
-                  <ActionButton
-                    onClick={() =>
-                      handleAction(cancelInvoice, 'Are you sure you want to cancel this invoice?')
-                    }
-                    disabled={isProcessing}
-                    label="Cancel Invoice"
-                    variant="secondary"
-                  />
-                  <ActionButton
-                    onClick={() =>
-                      handleAction(disputeInvoice, 'Are you sure you want to dispute this invoice?')
-                    }
-                    disabled={isProcessing}
-                    label="Dispute Invoice"
-                    variant="danger"
-                  />
-                </>
-              ) : null}
+              {blockedActions.length > 0 && (
+                <div className="pt-3 border-t border-border">
+                  <div className="text-xs text-muted-foreground mb-2">Actions controlled by other roles</div>
+                  <div className="space-y-2">
+                    {blockedActions.map((action) => (
+                      <div key={action.key} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                        <span className="text-muted-foreground">{action.label}</span>
+                        <span className="text-foreground">{action.actorRole.replace(/_/g, ' ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

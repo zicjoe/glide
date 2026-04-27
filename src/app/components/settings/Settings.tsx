@@ -2,18 +2,22 @@ import { useState, useEffect } from 'react';
 import type { SystemStatus } from '../../../lib/types';
 import { getSystemStatus, resetDemoData } from '../../../lib/api';
 import { getSystemStatusColor } from '../../../lib/format';
+import { getCantonReadiness } from '../../../lib/canton';
 
 export function Settings() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [apiBaseUrl, setApiBaseUrl] = useState('https://api.glide.example.com');
+  const [apiBaseUrl, setApiBaseUrl] = useState(import.meta.env.VITE_GLIDE_API_BASE_URL || 'http://localhost:8787');
+  const dataMode = import.meta.env.VITE_GLIDE_API_MODE || 'local';
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'Not configured';
   const [resetStatus, setResetStatus] = useState<'idle' | 'resetting' | 'done'>('idle');
+  const cantonReadiness = getCantonReadiness();
 
   useEffect(() => {
     getSystemStatus().then(setSystemStatus);
   }, []);
 
   const handleResetDemoData = async () => {
-    if (!window.confirm('Reset all local Glide demo workflow data?')) return;
+    if (!window.confirm('Reset the active Glide demo workflow data?')) return;
 
     setResetStatus('resetting');
     await resetDemoData();
@@ -51,6 +55,29 @@ export function Settings() {
         )}
       </div>
 
+
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-xl mb-4 text-foreground">Canton Contract Layer</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <ConfigItem label="Workflow Package" value={cantonReadiness.workflowPackage} />
+          <ConfigItem label="Workflow Module" value={cantonReadiness.workflowModule} />
+          <ConfigItem label="Participant ID" value={cantonReadiness.participantId} />
+          <ConfigItem label="Ledger API URL" value={cantonReadiness.ledgerApiUrl} />
+        </div>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <span className="text-foreground">Integration readiness</span>
+            <span className={`px-3 py-1 rounded-lg border text-sm ${getSystemStatusColor(cantonReadiness.status)}`}>
+              {cantonReadiness.configured ? 'configured' : 'not wired'}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">{cantonReadiness.message}</p>
+          <p className="text-sm text-muted-foreground mt-3">
+            Contract starter lives in <span className="font-mono text-foreground">canton/daml/Glide/Workflow/InvoiceWorkflow.daml</span>.
+          </p>
+        </div>
+      </div>
+
       <div className="bg-card rounded-xl border border-border p-6">
         <h2 className="text-xl mb-4 text-foreground">Supported Assets</h2>
         <div className="space-y-3">
@@ -72,6 +99,10 @@ export function Settings() {
 
       <div className="bg-card rounded-xl border border-border p-6">
         <h2 className="text-xl mb-4 text-foreground">Backend Configuration</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <ConfigItem label="Data Mode" value={dataMode} />
+          <ConfigItem label="Supabase Project" value={supabaseUrl} />
+        </div>
         <div className="space-y-4">
           <div>
             <label className="block text-foreground mb-2">API Base URL</label>
@@ -83,7 +114,7 @@ export function Settings() {
               placeholder="https://api.glide.example.com"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Configure the backend API endpoint for production deployment
+              Configure the local HTTP API endpoint. Supabase mode uses VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from .env.local
             </p>
           </div>
 
@@ -129,8 +160,7 @@ export function Settings() {
       <div className="bg-card rounded-xl border border-border p-6">
         <h2 className="text-xl mb-4 text-foreground">Demo Data</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Reset the local invoice workflow state back to the seeded CC and USDCx demo records.
-          This only clears browser demo data and does not affect any backend or Canton deployment.
+          Reset the active demo workflow state back to the seeded CC and USDCx records. In local mode this resets browser storage. In Supabase mode this resets the demo tables using the configured Supabase project.
         </p>
         <button
           type="button"
@@ -138,7 +168,7 @@ export function Settings() {
           disabled={resetStatus === 'resetting'}
           className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
         >
-          {resetStatus === 'resetting' ? 'Resetting...' : 'Reset Local Demo Data'}
+          {resetStatus === 'resetting' ? 'Resetting...' : 'Reset Demo Data'}
         </button>
         {resetStatus === 'done' && (
           <p className="text-sm text-primary mt-3">

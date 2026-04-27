@@ -16,7 +16,8 @@ export const mockInvoices: Invoice[] = [
     createdAt: '2026-04-01T10:00:00Z',
     updatedAt: '2026-04-20T14:30:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-001',
+    cantonReference: 'GLIDE-CN-INV-001',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-002',
@@ -33,7 +34,8 @@ export const mockInvoices: Invoice[] = [
     createdAt: '2026-04-10T09:00:00Z',
     updatedAt: '2026-04-22T11:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-002',
+    cantonReference: 'GLIDE-CN-INV-002',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-003',
@@ -50,7 +52,8 @@ export const mockInvoices: Invoice[] = [
     createdAt: '2026-04-15T08:00:00Z',
     updatedAt: '2026-04-23T10:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-003',
+    cantonReference: 'GLIDE-CN-INV-003',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-004',
@@ -67,7 +70,8 @@ export const mockInvoices: Invoice[] = [
     createdAt: '2026-03-20T12:00:00Z',
     updatedAt: '2026-04-18T16:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-004',
+    cantonReference: 'GLIDE-CN-INV-004',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-005',
@@ -84,7 +88,8 @@ export const mockInvoices: Invoice[] = [
     createdAt: '2026-03-25T11:00:00Z',
     updatedAt: '2026-04-25T09:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-005',
+    cantonReference: 'GLIDE-CN-INV-005',
+    cantonSyncStatus: 'PENDING',
   },
   {
     id: 'INV-006',
@@ -101,7 +106,8 @@ export const mockInvoices: Invoice[] = [
     createdAt: '2026-04-18T13:00:00Z',
     updatedAt: '2026-04-18T13:00:00Z',
     businessId: 'BIZ-001',
-    cantonReference: 'CANTON-REF-006',
+    cantonReference: 'GLIDE-CN-INV-006',
+    cantonSyncStatus: 'PENDING',
   },
 ];
 
@@ -136,7 +142,7 @@ export const mockAuditEvents: Record<string, AuditEvent[]> = {
       newStatus: 'DRAFT',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
     {
       id: 'AUD-001-2',
@@ -148,7 +154,7 @@ export const mockAuditEvents: Record<string, AuditEvent[]> = {
       newStatus: 'ISSUED',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
     {
       id: 'AUD-001-3',
@@ -160,7 +166,7 @@ export const mockAuditEvents: Record<string, AuditEvent[]> = {
       newStatus: 'PAYMENT_PENDING',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
     {
       id: 'AUD-001-4',
@@ -172,7 +178,7 @@ export const mockAuditEvents: Record<string, AuditEvent[]> = {
       newStatus: 'PAYMENT_CONFIRMED',
       asset: 'USDCx',
       amount: 50000,
-      referenceId: 'CANTON-REF-001',
+      referenceId: 'GLIDE-CN-INV-001',
     },
   ],
 };

@@ -11,3 +11,8 @@ pnpm-debug.log*
 .vite/
 
 .glide-data/
+
+# Daml / Canton build output
+canton/.daml/
+canton/.dars/
+canton/dist/
