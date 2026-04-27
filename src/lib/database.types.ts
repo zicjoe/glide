@@ -47,8 +47,15 @@ export type Database = {
           business_id: string;
           canton_reference: string | null;
           canton_workflow_id: string | null;
-          canton_sync_status: 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'FAILED';
+          canton_sync_status: 'NOT_SUBMITTED' | 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'CONFIRMED' | 'FAILED';
           canton_last_error: string | null;
+          canton_contract_id: string | null;
+          canton_command_id: string | null;
+          canton_update_id: string | null;
+          canton_completion_offset: string | null;
+          canton_template_id: string | null;
+          canton_submitted_at: string | null;
+          canton_confirmed_at: string | null;
         };
         Insert: {
           id: string;
@@ -76,8 +83,15 @@ export type Database = {
           business_id: string;
           canton_reference?: string | null;
           canton_workflow_id?: string | null;
-          canton_sync_status?: 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'FAILED';
+          canton_sync_status?: 'NOT_SUBMITTED' | 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'CONFIRMED' | 'FAILED';
           canton_last_error?: string | null;
+          canton_contract_id?: string | null;
+          canton_command_id?: string | null;
+          canton_update_id?: string | null;
+          canton_completion_offset?: string | null;
+          canton_template_id?: string | null;
+          canton_submitted_at?: string | null;
+          canton_confirmed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -105,8 +119,15 @@ export type Database = {
           business_id?: string;
           canton_reference?: string | null;
           canton_workflow_id?: string | null;
-          canton_sync_status?: 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'FAILED';
+          canton_sync_status?: 'NOT_SUBMITTED' | 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'CONFIRMED' | 'FAILED';
           canton_last_error?: string | null;
+          canton_contract_id?: string | null;
+          canton_command_id?: string | null;
+          canton_update_id?: string | null;
+          canton_completion_offset?: string | null;
+          canton_template_id?: string | null;
+          canton_submitted_at?: string | null;
+          canton_confirmed_at?: string | null;
         };
       };
       audit_events: {
@@ -223,7 +244,7 @@ export type Database = {
         | 'CANCELLED'
         | 'DISPUTED';
       user_role: 'BUSINESS' | 'PAYER' | 'SETTLEMENT_OPERATOR' | 'OBSERVER';
-      canton_sync_status: 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'FAILED';
+      canton_sync_status: 'NOT_SUBMITTED' | 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'CONFIRMED' | 'FAILED';
     };
   };
 };

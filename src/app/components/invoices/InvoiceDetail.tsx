@@ -10,18 +10,10 @@ import {
   markFulfilled,
   cancelInvoice,
   disputeInvoice,
+  submitInvoiceToCanton,
 } from '../../../lib/api';
-import {
-  formatCurrency,
-  formatDateTime,
-  getStatusColor,
-  formatStatusLabel,
-  getCantonSyncStatusColor,
-  formatCantonSyncStatus,
-} from '../../../lib/format';
+import { formatCurrency, formatDateTime, getStatusColor, formatStatusLabel } from '../../../lib/format';
 import { useDemoRole } from '../../../lib/useDemoRole';
-import { syncInvoiceWorkflowToCanton } from '../../../lib/cantonSync';
-import { getCantonReadiness } from '../../../lib/canton';
 import {
   getAvailableWorkflowActions,
   getBlockedWorkflowActions,
@@ -48,10 +40,9 @@ export function InvoiceDetail() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSubmittingCanton, setIsSubmittingCanton] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  const [isSyncingCanton, setIsSyncingCanton] = useState(false);
 
   const loadData = async () => {
     if (!id) return;
@@ -94,24 +85,20 @@ export function InvoiceDetail() {
     }
   };
 
+  const handleSubmitToCanton = async () => {
+    if (!id) return;
 
-  const handleCantonSync = async () => {
-    if (!invoice) return;
-
-    setIsSyncingCanton(true);
+    setIsSubmittingCanton(true);
     setActionError(null);
-    setSyncMessage(null);
 
     try {
-      const result = await syncInvoiceWorkflowToCanton(invoice.id);
-      setInvoice(result.invoice);
-      setSyncMessage(result.message);
+      await submitInvoiceToCanton(id);
       await loadData();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Canton sync failed. Please try again.';
+      const message = error instanceof Error ? error.message : 'Canton submission failed. Please check backend and ledger configuration.';
       setActionError(message);
     } finally {
-      setIsSyncingCanton(false);
+      setIsSubmittingCanton(false);
     }
   };
 
@@ -141,8 +128,6 @@ export function InvoiceDetail() {
 
   const availableActions = getAvailableWorkflowActions(invoice, currentRole);
   const blockedActions = getBlockedWorkflowActions(invoice, currentRole);
-  const cantonReadiness = getCantonReadiness();
-  const cantonSyncIsFinalized = invoice.cantonSyncStatus === 'FINALIZED';
 
   return (
     <div className="space-y-6">
@@ -193,8 +178,29 @@ export function InvoiceDetail() {
                   <DetailRow label="Canton Workflow ID" value={invoice.cantonWorkflowId} mono />
                 </div>
               )}
+              {invoice.cantonContractId && (
+                <div className="col-span-2">
+                  <DetailRow label="Canton Contract ID" value={invoice.cantonContractId} mono />
+                </div>
+              )}
+              {invoice.cantonCommandId && (
+                <div className="col-span-2">
+                  <DetailRow label="Canton Command ID" value={invoice.cantonCommandId} mono />
+                </div>
+              )}
+              {invoice.cantonUpdateId && (
+                <div className="col-span-2">
+                  <DetailRow label="Canton Update ID" value={invoice.cantonUpdateId} mono />
+                </div>
+              )}
+              {invoice.cantonCompletionOffset && (
+                <DetailRow label="Completion Offset" value={invoice.cantonCompletionOffset} mono />
+              )}
               {invoice.cantonSyncStatus && (
-                <DetailRow label="Canton Sync" value={invoice.cantonSyncStatus} />
+                <DetailRow label="Canton Status" value={invoice.cantonSyncStatus} />
+              )}
+              {invoice.cantonConfirmedAt && (
+                <DetailRow label="Canton Confirmed" value={formatDateTime(invoice.cantonConfirmedAt)} />
               )}
               {invoice.cantonLastError && (
                 <div className="col-span-2">
@@ -253,39 +259,22 @@ export function InvoiceDetail() {
             </p>
           </div>
 
-
-
           <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-xl mb-4 text-foreground">Canton Sync</h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">Sync status</span>
-                <span className={`px-3 py-1 rounded-lg border text-xs ${getCantonSyncStatusColor(invoice.cantonSyncStatus)}`}>
-                  {formatCantonSyncStatus(invoice.cantonSyncStatus)}
-                </span>
-              </div>
-              <MetadataRow label="Bridge mode" value={cantonReadiness.syncMode} />
-              <MetadataRow label="Environment" value={cantonReadiness.environment} />
-              {invoice.cantonWorkflowId && (
-                <MetadataRow label="Workflow ID" value={invoice.cantonWorkflowId} />
-              )}
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Mock mode records DevNet-style Canton finality in Supabase for the hackathon demo. Live ledger submission should stay behind the backend adapter.
-              </p>
-              {syncMessage && (
-                <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs text-primary">
-                  {syncMessage}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={handleCantonSync}
-                disabled={isSyncingCanton || cantonSyncIsFinalized}
-                className="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-              >
-                {cantonSyncIsFinalized ? 'Canton Workflow Finalized' : isSyncingCanton ? 'Syncing...' : 'Sync Canton Workflow'}
-              </button>
+            <h2 className="text-xl mb-2 text-foreground">Canton Ledger Tracking</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              This section only records real Canton values returned by the backend ledger adapter. If the backend or ledger is not configured, it will fail instead of creating fake finality.
+            </p>
+            <div className="space-y-3 mb-4">
+              <MetadataRow label="Status" value={invoice.cantonSyncStatus || 'NOT_SUBMITTED'} />
+              <MetadataRow label="Contract ID" value={invoice.cantonContractId || 'Not submitted'} />
+              <MetadataRow label="Update ID" value={invoice.cantonUpdateId || 'Not submitted'} />
             </div>
+            <ActionButton
+              onClick={handleSubmitToCanton}
+              disabled={isSubmittingCanton || Boolean(invoice.cantonContractId)}
+              label={invoice.cantonContractId ? 'Submitted to Canton' : isSubmittingCanton ? 'Submitting to Canton...' : 'Submit Workflow to Canton'}
+              variant="secondary"
+            />
           </div>
 
           <div className="bg-card rounded-xl border border-border p-6">

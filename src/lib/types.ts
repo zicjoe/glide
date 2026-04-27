@@ -13,7 +13,15 @@ export type InvoiceStatus =
 
 export type UserRole = 'BUSINESS' | 'PAYER' | 'SETTLEMENT_OPERATOR' | 'OBSERVER';
 
-export type CantonSyncStatus = 'PENDING' | 'READY' | 'SUBMITTED' | 'ACCEPTED' | 'FINALIZED' | 'FAILED';
+export type CantonSyncStatus =
+  | 'NOT_SUBMITTED'
+  | 'PENDING'
+  | 'READY'
+  | 'SUBMITTED'
+  | 'ACCEPTED'
+  | 'FINALIZED'
+  | 'CONFIRMED'
+  | 'FAILED';
 
 export interface Invoice {
   id: string;
@@ -34,6 +42,13 @@ export interface Invoice {
   cantonWorkflowId?: string;
   cantonSyncStatus?: CantonSyncStatus;
   cantonLastError?: string;
+  cantonContractId?: string;
+  cantonCommandId?: string;
+  cantonUpdateId?: string;
+  cantonCompletionOffset?: string;
+  cantonTemplateId?: string;
+  cantonSubmittedAt?: string;
+  cantonConfirmedAt?: string;
 }
 
 export interface SettlementInstruction {

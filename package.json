@@ -12,7 +12,9 @@
     "api:start": "node server/index.mjs",
     "dev:http": "vite --host 0.0.0.0 --mode http",
     "dev:supabase": "vite --host 0.0.0.0 --mode supabase",
-    "supabase:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts"
+    "supabase:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts",
+    "api:dev:canton": "node --env-file=.env.server server/index.mjs",
+    "dev:canton": "vite --host 0.0.0.0 --mode canton"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

@@ -63,7 +63,6 @@ export function Settings() {
           <ConfigItem label="Workflow Module" value={cantonReadiness.workflowModule} />
           <ConfigItem label="Participant ID" value={cantonReadiness.participantId} />
           <ConfigItem label="Ledger API URL" value={cantonReadiness.ledgerApiUrl} />
-          <ConfigItem label="Canton Bridge Mode" value={cantonReadiness.syncMode} />
         </div>
         <div className="rounded-lg border border-border bg-muted/50 p-4">
           <div className="flex items-center justify-between gap-3 mb-2">

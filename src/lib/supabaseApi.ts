@@ -60,6 +60,13 @@ function toInvoice(row: InvoiceRow): Invoice {
     cantonWorkflowId: row.canton_workflow_id || undefined,
     cantonSyncStatus: row.canton_sync_status || undefined,
     cantonLastError: row.canton_last_error || undefined,
+    cantonContractId: row.canton_contract_id || undefined,
+    cantonCommandId: row.canton_command_id || undefined,
+    cantonUpdateId: row.canton_update_id || undefined,
+    cantonCompletionOffset: row.canton_completion_offset || undefined,
+    cantonTemplateId: row.canton_template_id || undefined,
+    cantonSubmittedAt: row.canton_submitted_at || undefined,
+    cantonConfirmedAt: row.canton_confirmed_at || undefined,
   };
 }
 

@@ -4,36 +4,15 @@ import DA.Time (Time)
 
 -- Glide's Canton workflow model.
 -- This contract records invoice, payment, settlement, fulfillment, and audit state.
--- Token movement for CC and USDCx should be wired through Canton token contracts/adapters later.
-
-data AssetType = CC | USDCx
-  deriving (Eq, Show)
-
-data InvoiceStatus
-  = Draft
-  | Issued
-  | PaymentPending
-  | PaymentConfirmed
-  | SettlementPending
-  | Settled
-  | Fulfilled
-  | Cancelled
-  | Disputed
-  deriving (Eq, Show)
-
-data ActorRole
-  = Business
-  | Payer
-  | SettlementOperator
-  | Observer
-  deriving (Eq, Show)
+-- Asset movement for CC and USDCx is intentionally a separate integration layer.
+-- The first production milestone is real Canton workflow tracking.
 
 data WorkflowEvent = WorkflowEvent with
     action : Text
     actor : Party
-    actorRole : ActorRole
-    previousStatus : Optional InvoiceStatus
-    newStatus : InvoiceStatus
+    actorRole : Text
+    previousStatus : Optional Text
+    newStatus : Text
     timestamp : Time
   deriving (Eq, Show)
 
@@ -47,56 +26,33 @@ template InvoiceWorkflow
     title : Text
     customerName : Text
     amount : Decimal
-    asset : AssetType
+    asset : Text
     settlementDestination : Text
     dueDate : Time
     description : Text
-    status : InvoiceStatus
+    status : Text
     auditTrail : [WorkflowEvent]
   where
     signatory business
     observer payer, settlementOperator, auditObserver
 
     ensure amount > 0.0
-
-    choice Issue : ContractId InvoiceWorkflow
-      controller business
-      do
-        now <- getTime
-        assertMsg "Only draft invoices can be issued" (status == Draft)
-        create this with
-          status = PaymentPending
-          auditTrail = auditTrail ++
-            [ WorkflowEvent with
-                action = "Invoice Issued"
-                actor = business
-                actorRole = Business
-                previousStatus = Some Draft
-                newStatus = Issued
-                timestamp = now
-            , WorkflowEvent with
-                action = "Payment Request Generated"
-                actor = business
-                actorRole = Business
-                previousStatus = Some Issued
-                newStatus = PaymentPending
-                timestamp = now
-            ]
+    ensure asset == "CC" || asset == "USDCx"
 
     choice ConfirmPayment : ContractId InvoiceWorkflow
       controller payer
       do
         now <- getTime
-        assertMsg "Payment can only be confirmed from issued or payment pending state" (status == Issued || status == PaymentPending)
+        assertMsg "Payment can only be confirmed from issued or payment pending state" (status == "Issued" || status == "PaymentPending")
         create this with
-          status = PaymentConfirmed
+          status = "PaymentConfirmed"
           auditTrail = auditTrail ++
             [ WorkflowEvent with
                 action = "Payment Confirmed"
                 actor = payer
-                actorRole = Payer
+                actorRole = "Payer"
                 previousStatus = Some status
-                newStatus = PaymentConfirmed
+                newStatus = "PaymentConfirmed"
                 timestamp = now
             ]
 
@@ -104,16 +60,16 @@ template InvoiceWorkflow
       controller settlementOperator
       do
         now <- getTime
-        assertMsg "Settlement can only be routed after payment confirmation" (status == PaymentConfirmed)
+        assertMsg "Settlement can only be routed after payment confirmation" (status == "PaymentConfirmed")
         create this with
-          status = SettlementPending
+          status = "SettlementPending"
           auditTrail = auditTrail ++
             [ WorkflowEvent with
                 action = "Settlement Routed"
                 actor = settlementOperator
-                actorRole = SettlementOperator
-                previousStatus = Some PaymentConfirmed
-                newStatus = SettlementPending
+                actorRole = "SettlementOperator"
+                previousStatus = Some "PaymentConfirmed"
+                newStatus = "SettlementPending"
                 timestamp = now
             ]
 
@@ -121,16 +77,16 @@ template InvoiceWorkflow
       controller settlementOperator
       do
         now <- getTime
-        assertMsg "Settlement can only be completed after routing" (status == SettlementPending)
+        assertMsg "Settlement can only be completed after routing" (status == "SettlementPending")
         create this with
-          status = Settled
+          status = "Settled"
           auditTrail = auditTrail ++
             [ WorkflowEvent with
                 action = "Settlement Confirmed"
                 actor = settlementOperator
-                actorRole = SettlementOperator
-                previousStatus = Some SettlementPending
-                newStatus = Settled
+                actorRole = "SettlementOperator"
+                previousStatus = Some "SettlementPending"
+                newStatus = "Settled"
                 timestamp = now
             ]
 
@@ -138,16 +94,16 @@ template InvoiceWorkflow
       controller business
       do
         now <- getTime
-        assertMsg "Fulfillment can only be recorded after settlement" (status == Settled)
+        assertMsg "Fulfillment can only be recorded after settlement" (status == "Settled")
         create this with
-          status = Fulfilled
+          status = "Fulfilled"
           auditTrail = auditTrail ++
             [ WorkflowEvent with
                 action = "Fulfillment Confirmed"
                 actor = business
-                actorRole = Business
-                previousStatus = Some Settled
-                newStatus = Fulfilled
+                actorRole = "Business"
+                previousStatus = Some "Settled"
+                newStatus = "Fulfilled"
                 timestamp = now
             ]
 
@@ -155,16 +111,16 @@ template InvoiceWorkflow
       controller business
       do
         now <- getTime
-        assertMsg "Completed, cancelled, or disputed invoices cannot be cancelled" (status /= Fulfilled && status /= Cancelled && status /= Disputed)
+        assertMsg "Completed, cancelled, or disputed invoices cannot be cancelled" (status /= "Fulfilled" && status /= "Cancelled" && status /= "Disputed")
         create this with
-          status = Cancelled
+          status = "Cancelled"
           auditTrail = auditTrail ++
             [ WorkflowEvent with
                 action = "Invoice Cancelled"
                 actor = business
-                actorRole = Business
+                actorRole = "Business"
                 previousStatus = Some status
-                newStatus = Cancelled
+                newStatus = "Cancelled"
                 timestamp = now
             ]
 
@@ -172,15 +128,15 @@ template InvoiceWorkflow
       controller payer
       do
         now <- getTime
-        assertMsg "Completed, cancelled, or disputed invoices cannot be disputed" (status /= Fulfilled && status /= Cancelled && status /= Disputed)
+        assertMsg "Completed, cancelled, or disputed invoices cannot be disputed" (status /= "Fulfilled" && status /= "Cancelled" && status /= "Disputed")
         create this with
-          status = Disputed
+          status = "Disputed"
           auditTrail = auditTrail ++
             [ WorkflowEvent with
                 action = "Invoice Disputed"
                 actor = payer
-                actorRole = Payer
+                actorRole = "Payer"
                 previousStatus = Some status
-                newStatus = Disputed
+                newStatus = "Disputed"
                 timestamp = now
             ]

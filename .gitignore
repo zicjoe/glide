@@ -16,3 +16,4 @@ pnpm-debug.log*
 canton/.daml/
 canton/.dars/
 canton/dist/
+.env.server

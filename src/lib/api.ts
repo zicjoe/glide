@@ -34,6 +34,7 @@ const API_DELAY = 300;
 const STORAGE_KEY = 'glide.workflow.state.v1';
 const API_MODE = import.meta.env.VITE_GLIDE_API_MODE || 'local';
 const API_BASE_URL = (import.meta.env.VITE_GLIDE_API_BASE_URL || 'http://localhost:8787').replace(/\/$/, '');
+const CANTON_ACTIONS_ENABLED = import.meta.env.VITE_GLIDE_CANTON_ACTIONS === 'true';
 
 interface WorkflowState {
   invoices: Invoice[];
@@ -340,6 +341,14 @@ async function updateInvoiceStatus(
   return updatedInvoice;
 }
 
+async function postCantonWorkflowAction(invoiceId: string, actionPath: string): Promise<Invoice | null> {
+  return request<Invoice>(`/api/invoices/${invoiceId}/canton-${actionPath}`, { method: 'POST' });
+}
+
+export async function submitInvoiceToCanton(invoiceId: string): Promise<Invoice | null> {
+  return request<Invoice>(`/api/invoices/${invoiceId}/canton-submit`, { method: 'POST' });
+}
+
 async function postInvoiceAction(invoiceId: string, actionPath: string, actorRole?: UserRole): Promise<Invoice | null> {
   return request<Invoice>(`/api/invoices/${invoiceId}/${actionPath}`, {
     method: 'POST',
@@ -349,6 +358,7 @@ async function postInvoiceAction(invoiceId: string, actionPath: string, actorRol
 
 export async function confirmPayment(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
   const resolvedRole = resolveActorRole('confirmPayment', actorRole);
+  if (CANTON_ACTIONS_ENABLED) return postCantonWorkflowAction(invoiceId, 'confirm-payment');
   if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.confirmPayment.nextStatus, workflowActions.confirmPayment.actionLabel, resolvedRole);
   if (useHttpApi()) return postInvoiceAction(invoiceId, 'confirm-payment', resolvedRole);
   return updateInvoiceStatus(invoiceId, workflowActions.confirmPayment.nextStatus, workflowActions.confirmPayment.actionLabel, resolvedRole);
@@ -356,6 +366,7 @@ export async function confirmPayment(invoiceId: string, actorRole?: UserRole): P
 
 export async function routeSettlement(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
   const resolvedRole = resolveActorRole('routeSettlement', actorRole);
+  if (CANTON_ACTIONS_ENABLED) return postCantonWorkflowAction(invoiceId, 'route-settlement');
   if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.routeSettlement.nextStatus, workflowActions.routeSettlement.actionLabel, resolvedRole);
   if (useHttpApi()) return postInvoiceAction(invoiceId, 'route-settlement', resolvedRole);
   return updateInvoiceStatus(invoiceId, workflowActions.routeSettlement.nextStatus, workflowActions.routeSettlement.actionLabel, resolvedRole);
@@ -363,6 +374,7 @@ export async function routeSettlement(invoiceId: string, actorRole?: UserRole): 
 
 export async function markSettled(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
   const resolvedRole = resolveActorRole('markSettled', actorRole);
+  if (CANTON_ACTIONS_ENABLED) return postCantonWorkflowAction(invoiceId, 'mark-settled');
   if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.markSettled.nextStatus, workflowActions.markSettled.actionLabel, resolvedRole);
   if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-settled', resolvedRole);
   return updateInvoiceStatus(invoiceId, workflowActions.markSettled.nextStatus, workflowActions.markSettled.actionLabel, resolvedRole);
@@ -370,6 +382,7 @@ export async function markSettled(invoiceId: string, actorRole?: UserRole): Prom
 
 export async function markFulfilled(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
   const resolvedRole = resolveActorRole('markFulfilled', actorRole);
+  if (CANTON_ACTIONS_ENABLED) return postCantonWorkflowAction(invoiceId, 'mark-fulfilled');
   if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.markFulfilled.nextStatus, workflowActions.markFulfilled.actionLabel, resolvedRole);
   if (useHttpApi()) return postInvoiceAction(invoiceId, 'mark-fulfilled', resolvedRole);
   return updateInvoiceStatus(invoiceId, workflowActions.markFulfilled.nextStatus, workflowActions.markFulfilled.actionLabel, resolvedRole);
@@ -377,6 +390,7 @@ export async function markFulfilled(invoiceId: string, actorRole?: UserRole): Pr
 
 export async function cancelInvoice(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
   const resolvedRole = resolveActorRole('cancelInvoice', actorRole);
+  if (CANTON_ACTIONS_ENABLED) return postCantonWorkflowAction(invoiceId, 'cancel');
   if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.cancelInvoice.nextStatus, workflowActions.cancelInvoice.actionLabel, resolvedRole);
   if (useHttpApi()) return postInvoiceAction(invoiceId, 'cancel', resolvedRole);
   return updateInvoiceStatus(invoiceId, workflowActions.cancelInvoice.nextStatus, workflowActions.cancelInvoice.actionLabel, resolvedRole);
@@ -384,6 +398,7 @@ export async function cancelInvoice(invoiceId: string, actorRole?: UserRole): Pr
 
 export async function disputeInvoice(invoiceId: string, actorRole?: UserRole): Promise<Invoice | null> {
   const resolvedRole = resolveActorRole('disputeInvoice', actorRole);
+  if (CANTON_ACTIONS_ENABLED) return postCantonWorkflowAction(invoiceId, 'dispute');
   if (useSupabaseApi()) return updateSupabaseInvoiceStatus(invoiceId, workflowActions.disputeInvoice.nextStatus, workflowActions.disputeInvoice.actionLabel, resolvedRole);
   if (useHttpApi()) return postInvoiceAction(invoiceId, 'dispute', resolvedRole);
   return updateInvoiceStatus(invoiceId, workflowActions.disputeInvoice.nextStatus, workflowActions.disputeInvoice.actionLabel, resolvedRole);
